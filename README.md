@@ -1,138 +1,126 @@
-* MiniFlow README
-** 概念
-この承認フローシステムは、口頭での承認をシステムで可視化ならびに仕組み化を支援するためのものです。現状はシステムの基本機能実装に注力するために、現時点では一段階の承認を実現と最低限の承認フローを実現するものになります。
-主な機能は承認申請機能、承認、チーム作成、メンバー登録、メンバーのチーム登録、申請の承認、申請の却下、申請の検索
+# MiniFlow
 
-*** ドメインの定義
-意思決定の正当性を履歴付きで担保する承認ワークフロー業務
+## 1. プロジェクト概要
+MiniFlow は、小規模組織向けの承認ワークフローを対象にした TypeScript プロジェクトです。  
+口頭承認のような「記録が残りにくい意思決定」を、履歴付きで検証可能な形に置き換えることを目的にしています。
 
-*** 問題定義
-口頭など形に残らない承認によるトラブルが発生していると想定
+## 2. 課題とMVPスコープ
+### 解決したい課題
+- 承認の証跡が残らないことによる認識齟齬・責任境界の曖昧化
+- 承認状態の可視化不足による運用コスト増加
 
-*** 解決対象
-小規模組織
+### MVPで含むもの
+- Request の作成・更新・提出
+- 承認 (`approve`) / 却下 (`reject`)
+- 却下後の再提出 (`revise`)
+- Request 一覧検索（例: status, teamId での絞り込み）
 
-*** 制約
-一段階承認による最低限の承認フロー
+### MVPで含めないもの
+- 多段承認、全員承認、段階別ルーティング
+- 高度な通知機構
+- 複雑な権限階層
 
-*** 方針
-小規模組織に対する承認ワークフローの実装を行い、口頭などの形に残らない承認ワークフローを解決するため
-承認フローはドメインの複雑性は低く、トランザクションの生合成が重要で、想定しているチーム規模も小さいため、モノリス構造が合理的と判断しました。
-各種機能はTypeScriptを前提とした設計と実装を想定しております、こちらバックエンド、フロントエンドの両方で使うことで型の共有、APIレスポンス型の共通化のような設計の一貫性を保つためです。
-バックエンドとフロントエンドの実装領域切り分けを行い、APIを提供する想定です。
-将来的に requiredApprovalCount を導入可能な設計とする。
+## 3. ドメインモデル
+### Request (Aggregate Root)
+- 申請のライフサイクルと整合性を管理する主体
+- `status` を保持し、状態遷移を統制する
+- `Approval` 履歴を内部に持つ
 
-*** ユースケース
-- 申請作成
-- 申請提出
-- 承認
-- 却下
-- 再提出
-- メンバー登録
-- チーム作成
-- メンバーのチームアサイン
-- 承認者の割り当て
-- 申請一覧取得
-- ステータス遷移の検証
+### Approval (Request 内部エンティティ)
+- 承認/却下の履歴イベント
+- 追加のみ。生成後は不変（immutable）
+- Request なしでは存在しない
 
-*** 将来的な変更が発生し得うるパターン
-+	承認ルールの変更（多段階化、全員承認制の導入など、承認の仕組み変更に伴うシステムのスキーマの変更が発生しうる要件が発生した場合）
-+	表示・検索要件の変更（項目追加、タグ追加など、機能変更に伴うシステムの実装ならびにスキーマの変更が伴うもの）
-+	システム境界の変更（外部公開、マイクロサービス化、その他外部システムとの連携に必要なAPIの定義の発生など）
+### ApproverPolicy (Domain Interface)
+- 承認者資格を判定する抽象
+- domain 層には interface のみ置く
+- 具体実装は infrastructure 層に置く
 
-*** Aggregate境界
-Aggregate RootはRequestを主体、ApprovalはRequestに対して内部エンティティとして付随するものとする
-Request更新のトランザクション処理でApprovalは追加される（追加のみ、更新はなし、immutableの履歴）
-RequestとApprovalは以下の不変条件を適用することで整合性を維持するものとする。
-ApprovalはRequestなしでは存在できないため、単体での整合性を保つ必要がないため、承認履歴はRequestの一部としてトランザクション整合性を保つ必要がある。
+## 4. 状態遷移
+### ステータス定義
+`Draft`, `Pending`, `Approved`, `Rejected`, `Deleted`
 
-Request Aggregate が保証する整合性
-- 状態遷移の正当性
-- Approval履歴の不変性
-- 重複承認の排除
-- 承認資格チェックの強制
+`Request.status` は source of truth として保持します。  
+`approve/reject` 実行時に、`Approval` 追加と `Request.status` 更新を同一トランザクションで行います。
 
-***ドメインサービス
-- 承認者の判定（承認者が上長かどうか）
-承認資格の判定はRequest内部の情報だけでは完結しないため
-組織構造など外部コンテキストに依存するためドメインサービスとする
+### 状態遷移図（MVP）
+- `Draft -> Draft` (`update`)
+- `Draft -> Pending` (`submit`)
+- `Draft -> Deleted` (`delete`)
+- `Pending -> Approved` (`approve`)
+- `Pending -> Rejected` (`reject`)
+- `Rejected -> Draft` (`revise`)
+- `Rejected -> Deleted` (`delete`)
+- `Approved`, `Deleted` は終端状態
 
-*** Request.approve(actor)
-	1.	現在ステータスが承認可能か検証
-	2.	重複承認チェック
-	3.	ドメインサービスで承認資格チェック
-	4.	Approvalを生成して追加
-	5.	ステータス更新
-この一連がトランザクション境界。
+### 状態遷移表
+| From | Action | To | Guard |
+| --- | --- | --- | --- |
+| Draft | update | Draft | Request が Deleted でないこと |
+| Draft | submit | Pending | 必須入力が満たされること |
+| Draft | delete | Deleted | なし |
+| Pending | approve | Approved | 承認者資格あり・重複承認なし |
+| Pending | reject | Rejected | 承認者資格あり |
+| Rejected | revise | Draft | 同一 Request を再編集可能に戻す |
+| Rejected | delete | Deleted | なし |
 
+## 5. ドメインルール
+### Invariant（常に成立すべき条件）
+- `Approved` / `Deleted` は終端状態
+- `Approval` は追加のみで更新・削除しない
+- `Approved` の Request には `APPROVE` の Approval が 1 件以上存在する
+- `Rejected` の Request には `REJECT` の Approval が 1 件以上存在する
 
-** トレードオフ
-トレードオフ部分としては、実装コストを抑えるために単一承認としています。
-状態遷移の単純化、トランザクション協会の明確化
-承認履歴の一貫性維持を容易にする
+### Precondition（操作成功の前提条件）
+- `update` は `Draft` でのみ可能
+- `submit` は `Draft` でのみ可能
+- `approve/reject` は `Pending` でのみ可能
+- `revise` は `Rejected` でのみ可能
+- 同一承認者の重複承認は不可
+- 承認者資格を満たさない actor は `approve/reject` 不可
 
-** 不変条件
-*** Approval単体で閉じる不変条件
-必須項目の定義
--  ID
-- 承認者ID
-- 承認種別
-- 承認日時
-生成後変更不可
+## 6. アーキテクチャ方針
+- レイヤ構成: `presentation -> application -> domain`
+- `infrastructure` は `application/domain` の interface を実装
+- ドメイン層は外部組織情報に直接依存しない
+- 例外は少なくとも `DomainError` と `ApplicationError` に分離して扱う
 
-*** Approval追加操作に対する不変条件
-- Pending のみ
-- 同一人物の重複禁止
-- 承認資格を持つこと
-- Approved状態ではApproveが1件存在する
-- rejected状態ではRejectが1件以上存在する
+## 7. データ整合性方針
+- `Request` 更新と `Approval` 追加は同一トランザクション境界
+- `approve/reject` の成否は、履歴追加と `status` 更新の原子性で保証
+- 検索要件（例: status, teamId, createdAt）を想定したインデックス設計を行う
 
-*** Requestの不変条件：
-- Draft以外では内容変更不可
-- Pending以外ではapprove/reject不可
--  Approved/Deletedは終端状態
--  Approvalは追加のみで変更不可
--  Approval追加はPendingのみ
+## 8. 実装の見せどころ（ポートフォリオ観点）
+- Request Aggregate に状態遷移ガードと不変条件を集約
+- `ApproverPolicy` を interface として分離し、境界設計を明示
+- 状態遷移表とテストケースを 1:1 で対応させる
+- Repository は interface を定義し、infra で実装を差し替え可能にする
 
-** 状態遷移
-** ステータス定義
-Request.status は最新のApprovalにより決定される
-（DraftとDeletedは例外的内部状態）
-Draft
-Pending
-Approved
-Rejected
-Deleted
+## 9. テスト戦略
+### Domain テスト
+- 状態遷移の正常系/異常系
+- Invariant 違反の拒否
+- 重複承認・資格なし承認の拒否
 
-*** 状態遷移図
-Draft
-└ update() → Draft
-└ submit() → Pending
-└ delete() → Deleted
+### Application テスト
+- UseCase 単位の統合的テスト（Repository/Policy は差し替え）
+- エラーマッピングとユースケース境界の検証
 
-Pending
-└ approve() → Approved
-└ reject() → Rejected
+### 主要シナリオ
+1. `Pending` 以外で `approve/reject` は失敗
+2. 同一承認者の重複承認は失敗
+3. 承認資格なしは失敗
+4. 終端状態での不正操作は失敗
+5. `submit/approve/reject/revise` の正常遷移
+6. 承認操作で `Approval` 追加と `status` 更新が同一 Tx 前提であること
 
-Rejected
-└ revise() → Draft
-└ delete() → Deleted
+## 10. 将来拡張とトレードオフ
+### 現時点のトレードオフ
+- MVPでは一段承認に限定し、実装コストを抑える
+- その代わり、複雑な承認ルールは対象外
 
-Approved → 終端
-Deleted → 終端
-
-*** Requestの操作
-create
- 許可状態特になし
-update
- 許可状態draftのみ（所謂下書き）
-submit
- 許可状態 Draftのみ
-approve
- 許可状態 Pendingのみ
-reject
- 許可状態 Pendingのみ
-revise
- 許可状態 Rejectedのみ
-delete
- 許可状態 DraftとRejectedのみ
+### 将来拡張
+- `requiredApprovalCount` 導入
+- 多段承認・全員承認への拡張
+- 表示/検索要件の拡張（タグ、属性追加）
+- 外部公開/API分割などシステム境界の拡張
