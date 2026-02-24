@@ -95,80 +95,98 @@
 - `Pending` のときのみ追加可能
 - 同一人物の重複承認は禁止
 - 承認資格を持つこと
-- `Approved` なら Approve が1件存在
-- `Rejected` なら Reject が1件以上存在
+- Approved状態ではApproveが1件存在する
+- rejected状態ではRejectが1件以上存在する
 
-### Request
-- `Draft` 以外では内容変更不可
-- `Pending` 以外では approve / reject 不可
-- `Approved` / `Deleted` は終端状態
-- Approval は追加のみ（更新不可）
+*** Requestの不変条件：
+- Draft以外では内容変更不可
+- Pending以外ではapprove/reject不可
+-  Approved/Deletedは終端状態
+-  Approvalは追加のみで変更不可
+-  Approval追加はPendingのみ
 
----
+** 状態遷移
+** ステータス定義
+Request.status は最新のApprovalにより決定される
+（DraftとDeletedは例外的内部状態）
+Draft
+Pending
+Approved
+Rejected
+Deleted
 
-## 7. 状態遷移
+*** 状態遷移図
+Draft
+└ update() → Draft
+└ submit() → Pending
+└ delete() → Deleted
 
-### ステータス
-- `Draft`
-- `Pending`
-- `Approved`
-- `Rejected`
-- `Deleted`
+Pending
+└ approve() → Approved
+└ reject() → Rejected
 
-> `Request.status` は最新の Approval によって決まる（Draft / Deleted は内部状態）
+Rejected
+└ revise() → Draft
+└ delete() → Deleted
 
-### 遷移
-- `Draft` → `Draft` (`update`)
-- `Draft` → `Pending` (`submit`)
-- `Draft` → `Deleted` (`delete`)
-- `Pending` → `Approved` (`approve`)
-- `Pending` → `Rejected` (`reject`)
-- `Rejected` → `Draft` (`revise`)
-- `Rejected` → `Deleted` (`delete`)
-- `Approved` / `Deleted` は終端
+Approved → 終端
+Deleted → 終端
 
----
+*** Requestの操作
+create
+ 許可状態特になし
+update
+ 許可状態draftのみ（所謂下書き）
+submit
+ 許可状態 Draftのみ
+approve
+ 許可状態 Pendingのみ
+reject
+ 許可状態 Pendingのみ
+revise
+ 許可状態 Rejectedのみ
+delete
+ 許可状態 DraftとRejectedのみ
+## 設計判断の根拠（代替案との比較）
+### なぜ Approval を Request の内部エンティティにしたか
+- 採用案（内部エンティティ）
+  - 1回の承認操作で「重複承認防止・承認資格チェック・状態遷移・履歴追加」を同一トランザクションで完結できる。
+  - 「Approval は Request なしでは成立しない」というライフサイクル従属性をそのままモデル化できる。
+- 代替案（Approval を別 Aggregate）
+  - 利点: 承認履歴の大量化へのスケール、承認監査の独立管理、将来のイベント駆動化に適合しやすい。
+  - 欠点: Request と Approval の整合性が分散し、最終整合や補償処理が必要になる。
+- 現時点の判断
+  - 対象が小規模組織かつ単一承認のため、整合性を優先して内部エンティティを採用。
+  - ただし監査要件増大・高頻度アクセス・履歴肥大化が発生した時点で分離を再評価する。
 
-## 8. 主要ユースケース（例: Request.approve(actor)）
+### なぜ status を保持するか（派生値を保存する理由）
+- status は Approval 履歴から理論上は導出可能だが、実装では保持する。
+- 理由
+  - 一覧検索や集計のクエリを単純化し、読み取り性能を安定させる。
+  - API 応答で状態解釈ロジックを重複させない。
+- 一貫性維持の方針
+  - status 更新は Approval 追加と同一トランザクションでのみ実行する。
+  - バッチや手動更新での status 直接更新は禁止する。
 
-1. 現在ステータスが承認可能かを検証
-2. 重複承認チェック
-3. ドメインサービスで承認資格チェック
-4. Approval を生成し追加
-5. ステータス更新
+## 拡張時の破壊点（requiredApprovalCount 導入）
+現行モデルは「承認1件で Approved」を前提としているため、以下が破壊点になる。
 
-この一連を 1 トランザクションとして扱います。
+1. `approve()` の完了条件
+- 現行: 承認1件で即 Approved。
+- 拡張後: `承認数 >= requiredApprovalCount` を満たすまで Pending を維持する必要がある。
 
----
+2. status 決定ロジック
+- 現行: 最新 Approval を見ればよい。
+- 拡張後: Approval 集合（承認数・却下数・承認順序）からの評価に変更が必要。
 
-## 9. 将来拡張ポイント
+3. 不変条件
+- 現行: Approved なら Approve が1件存在。
+- 拡張後: Approved なら `Approve件数 >= requiredApprovalCount` に置換。
 
-- `requiredApprovalCount` 導入による多段階承認
-- 承認ルール変更（全員承認制など）
-- 表示・検索要件の拡張（タグ、項目追加）
-- システム境界変更（外部公開 API / マイクロサービス分割）
+4. 承認方式の選択
+- 並列承認か逐次承認かでルールが変わるため、`ApprovalPolicy`（例: Sequential / Parallel）の導入が必要。
 
----
-
-## 10. Claude Code での実装方針（この先の進め方）
-
-このREADMEは「設計の意図」を先に固定し、Claude Code で段階的に実装するための土台です。
-推奨ステップ:
-
-1. エンティティ・値オブジェクト・状態遷移ルールを TypeScript で定義
-2. ユースケース層（アプリケーションサービス）を実装
-3. API スキーマ定義（OpenAPI など）
-4. 永続化層（Repository）を追加
-5. フロントエンド実装（一覧・詳細・承認操作）
-6. テスト（ユニット / 結合）を整備
-
----
-
-## 11. ポートフォリオとしての見せ方（採用向け）
-
-このプロジェクトでは、以下を明示的に示すと評価されやすくなります。
-
-- **設計判断の理由**: 「なぜ今は1段階承認か」を README と Issue で説明
-- **品質担保**: 状態遷移と不変条件のテストケースを提示
-- **拡張性**: 多段階承認にどう移行できるかを差分で示す
-- **TypeScript 活用**: 型安全な API 契約・ドメイン型の設計を提示
+## 今後の移行方針
+- 短期: 現行設計のまま実装完成度（テスト、Repository、エラー設計）を優先する。
+- 中期: requiredApprovalCount と ApprovalPolicy を Value Object 化し、`approve()` 判定をポリシーに委譲する。
+- 長期: 監査・検索要件が増大した場合、Approval を別 Aggregate / イベントストア化する。
