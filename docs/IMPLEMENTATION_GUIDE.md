@@ -163,15 +163,38 @@
 
 ## 8. テスト戦略
 ### 8.1 Domainユニット（表駆動）
-- `Draft` で `submit` 成功
-- `Draft` で `approve` 失敗
-- `Pending` で `approve` 成功 + `Approval` 1件追加
-- `Pending` で `reject` 成功 + `Approval` 1件追加
-- `Rejected` で `revise` 成功（`Approval` 追加なし）
-- `Pending` で `delete` 失敗
-- `Approved` で `delete` 失敗
-- `Deleted` で `submit/approve/reject/revise/delete` 失敗
-- `ApproverPolicy=false` で `approve/reject` は `403` 相当
+`3.1 遷移表` と 1:1 で対応するテストケースIDを定義する。
+
+| ID | From | Action | 期待結果 | 主な検証ポイント |
+| --- | --- | --- | --- | --- |
+| T01 | Draft | submit | 成功（Pending） | statusがPendingになる |
+| T02 | Draft | delete | 成功（Deleted） | status=Deleted, deletedAtが設定される |
+| T03 | Draft | approve | 失敗（409） | Precondition違反 |
+| T04 | Draft | reject | 失敗（409） | Precondition違反 |
+| T05 | Draft | revise | 失敗（409） | Precondition違反 |
+| T06 | Draft | update | 成功（Draft維持） | status不変、内容更新のみ |
+| T07 | Pending | approve | 成功（Approved） | status更新 + Approval 1件追加 |
+| T08 | Pending | reject | 成功（Rejected） | status更新 + Approval 1件追加 |
+| T09 | Pending | submit | 失敗（409） | Precondition違反 |
+| T10 | Pending | revise | 失敗（409） | Precondition違反 |
+| T11 | Pending | delete | 失敗（409） | Precondition違反（Draft/Rejectedのみ可） |
+| T12 | Pending | update | 失敗（409） | Precondition違反 |
+| T13 | Rejected | revise | 成功（Draft） | 同一RequestがDraftに戻る、Approval追加なし |
+| T14 | Rejected | delete | 成功（Deleted） | status=Deleted, deletedAtが設定される |
+| T15 | Rejected | submit | 失敗（409） | Precondition違反 |
+| T16 | Rejected | approve | 失敗（409） | Precondition違反 |
+| T17 | Rejected | reject | 失敗（409） | Precondition違反 |
+| T18 | Rejected | update | 失敗（409） | Precondition違反 |
+| T19 | Approved | submit/approve/reject/revise/delete/update | 失敗（409） | 終端状態保護 |
+| T20 | Deleted | submit/approve/reject/revise/delete/update | 失敗（409） | 終端状態保護 |
+| T21 | Pending | approve（Policy=false） | 失敗（403） | 承認権限なしを拒否 |
+| T22 | Pending | reject（Policy=false） | 失敗（403） | 却下権限なしを拒否 |
+| T23 | Pending | approve（同一actor再実行） | 失敗（409） | 重複承認を拒否 |
+
+実装メモ:
+- テーブル駆動で `from`, `action`, `expectedStatus`, `expectedError` を持つデータセットを作る
+- `T07/T08` は Approvalの追加件数と actionType まで検証する
+- `T13` は `Approval` が増えないことを明示的に検証する
 
 ### 8.2 Applicationテスト
 - 各UseCaseで成功ケース1本
