@@ -32,11 +32,30 @@
 
 ## 3. 状態遷移（決定版）
 ### 3.1 遷移表
-- `Draft`: `submit -> Pending`, `delete -> Deleted`
-- `Pending`: `approve -> Approved`, `reject -> Rejected`
-- `Rejected`: `revise -> Draft`, `delete -> Deleted`
-- `Approved`: 遷移なし（終端）
-- `Deleted`: 遷移なし（終端）
+以下の表を状態遷移の真実（source of truth）とする。
+
+| From | Action | To | 結果 | 備考 |
+| --- | --- | --- | --- | --- |
+| Draft | submit | Pending | 成功 | 提出 |
+| Draft | delete | Deleted | 成功 | 論理削除 |
+| Draft | approve | - | 失敗（409） | Pendingのみ可 |
+| Draft | reject | - | 失敗（409） | Pendingのみ可 |
+| Draft | revise | - | 失敗（409） | Rejectedのみ可 |
+| Draft | update | Draft | 成功 | 内容更新 |
+| Pending | approve | Approved | 成功 | Approval追加 |
+| Pending | reject | Rejected | 成功 | Approval追加 |
+| Pending | submit | - | 失敗（409） | Draftのみ可 |
+| Pending | revise | - | 失敗（409） | Rejectedのみ可 |
+| Pending | delete | - | 失敗（409） | Draft/Rejectedのみ可 |
+| Pending | update | - | 失敗（409） | Draftのみ可 |
+| Rejected | revise | Draft | 成功 | 同一Requestを戻す |
+| Rejected | delete | Deleted | 成功 | 論理削除 |
+| Rejected | submit | - | 失敗（409） | Draftのみ可 |
+| Rejected | approve | - | 失敗（409） | Pendingのみ可 |
+| Rejected | reject | - | 失敗（409） | Pendingのみ可 |
+| Rejected | update | - | 失敗（409） | Draftのみ可 |
+| Approved | submit/approve/reject/revise/delete/update | - | 失敗（409） | 終端状態 |
+| Deleted | submit/approve/reject/revise/delete/update | - | 失敗（409） | 終端状態 |
 
 ### 3.2 Invariant（常に真となる想定）
 - `Approved` / `Deleted` は終端であり状態変更不可
