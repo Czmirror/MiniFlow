@@ -5,6 +5,11 @@
 - `revise()` は「同一Requestを `Draft` に戻す」。reviseの際に新規Request作成（versioning）は行わない。
 - `delete()` は `Draft` と `Rejected` のみ許可。`Pending` / `Approved` / `Deleted` には適用できない。
 
+### 0.1 技術スタック固定
+- Frontend: `Next.js`（`React + TypeScript`）
+- Backend: `NestJS`（`TypeScript`）
+- Database: `PostgreSQL`
+
 ## 1. MVPスコープ（Minimum Viable Product）
 ### スコープ内
 - 1段承認（`approve` / `reject`）
@@ -101,13 +106,22 @@
 - `infrastructure` は interface 実装側
 
 ## 6. DB方針
+- 主キーは `uuid` を採用する（`requests.id`, `approvals.id`, `users.id`, `teams.id` など）
+- UUID生成は `UUIDv7` 推奨。導入が難しい場合はMVPとして `gen_random_uuid()` でも可
 - `requests` テーブルに `status`（NOT NULL）を保持
+- `requests` は論理削除を前提とし、`deleted_at` カラムを持つ
 - `approvals` テーブルは履歴（insert only）
 - `approve/reject` は同一トランザクションで以下を実行:
   - `requests.status` 更新
   - `approvals` 追加
 - `revise` は同一トランザクションで `requests.status = Draft` に更新
 - MVPでは `revise` 時に `Approval` は追加しない
+- `delete` は同一トランザクションで `requests.status = Deleted` と `deleted_at` 設定を同時に行う
+
+整合ルール:
+- `status = Deleted <=> deleted_at IS NOT NULL`
+- `status != Deleted <=> deleted_at IS NULL`
+- `Approval` は論理削除しない（履歴保持）
 
 注記:
 - `revise` の実行者履歴を厳密に残したい場合、将来 `actionType=Revised` を追加する
