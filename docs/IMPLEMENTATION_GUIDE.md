@@ -195,6 +195,7 @@
 - テーブル駆動で `from`, `action`, `expectedStatus`, `expectedError` を持つデータセットを作る
 - `T07/T08` は Approvalの追加件数と actionType まで検証する
 - `T13` は `Approval` が増えないことを明示的に検証する
+- 雛形: `docs/templates/request-state-transition.spec.ts`
 
 ### 8.2 Applicationテスト
 - 各UseCaseで成功ケース1本
