@@ -1,0 +1,537 @@
+openapi: 3.1.0
+info:
+  title: MiniFlow API
+  version: 0.1.0
+  description: API contract for MiniFlow MVP.
+
+servers:
+  - url: /api/v1
+
+tags:
+  - name: Requests
+    description: Request workflow endpoints
+
+paths:
+  /requests:
+    post:
+      tags: [Requests]
+      summary: Create draft request
+      operationId: createRequest
+      parameters:
+        - $ref: "#/components/parameters/XActorId"
+        - $ref: "#/components/parameters/XTeamId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRequestBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [request]
+                properties:
+                  request:
+                    $ref: "#/components/schemas/Request"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    get:
+      tags: [Requests]
+      summary: List requests
+      operationId: listRequests
+      parameters:
+        - $ref: "#/components/parameters/XActorId"
+        - $ref: "#/components/parameters/XTeamId"
+        - name: teamId
+          in: query
+          required: true
+          schema:
+            $ref: "#/components/schemas/Uuid"
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/RequestStatus"
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: includeDeleted
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListRequestsResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /requests/{id}:
+    patch:
+      tags: [Requests]
+      summary: Update request (Draft only)
+      operationId: updateRequest
+      parameters:
+        - $ref: "#/components/parameters/XActorId"
+        - $ref: "#/components/parameters/XTeamId"
+        - $ref: "#/components/parameters/RequestId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateRequestBody"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [request]
+                properties:
+                  request:
+                    $ref: "#/components/schemas/Request"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    get:
+      tags: [Requests]
+      summary: Get request detail with approvals
+      operationId: getRequest
+      parameters:
+        - $ref: "#/components/parameters/XActorId"
+        - $ref: "#/components/parameters/XTeamId"
+        - $ref: "#/components/parameters/RequestId"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [request, approvals]
+                properties:
+                  request:
+                    $ref: "#/components/schemas/Request"
+                  approvals:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Approval"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /requests/{id}/submit:
+    post:
+      tags: [Requests]
+      summary: Submit request (Draft -> Pending)
+      operationId: submitRequest
+      parameters:
+        - $ref: "#/components/parameters/XActorId"
+        - $ref: "#/components/parameters/XTeamId"
+        - $ref: "#/components/parameters/RequestId"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [request]
+                properties:
+                  request:
+                    $ref: "#/components/schemas/Request"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /requests/{id}/approve:
+    post:
+      tags: [Requests]
+      summary: Approve request (Pending -> Approved)
+      operationId: approveRequest
+      parameters:
+        - $ref: "#/components/parameters/XActorId"
+        - $ref: "#/components/parameters/XTeamId"
+        - $ref: "#/components/parameters/RequestId"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DecisionBody"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [request, approval]
+                properties:
+                  request:
+                    $ref: "#/components/schemas/Request"
+                  approval:
+                    $ref: "#/components/schemas/Approval"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /requests/{id}/reject:
+    post:
+      tags: [Requests]
+      summary: Reject request (Pending -> Rejected)
+      operationId: rejectRequest
+      parameters:
+        - $ref: "#/components/parameters/XActorId"
+        - $ref: "#/components/parameters/XTeamId"
+        - $ref: "#/components/parameters/RequestId"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DecisionBody"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [request, approval]
+                properties:
+                  request:
+                    $ref: "#/components/schemas/Request"
+                  approval:
+                    $ref: "#/components/schemas/Approval"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /requests/{id}/revise:
+    post:
+      tags: [Requests]
+      summary: Revise request (Rejected -> Draft)
+      operationId: reviseRequest
+      parameters:
+        - $ref: "#/components/parameters/XActorId"
+        - $ref: "#/components/parameters/XTeamId"
+        - $ref: "#/components/parameters/RequestId"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [request]
+                properties:
+                  request:
+                    $ref: "#/components/schemas/Request"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /requests/{id}/delete:
+    post:
+      tags: [Requests]
+      summary: Logical delete request (Draft/Rejected -> Deleted)
+      operationId: deleteRequest
+      parameters:
+        - $ref: "#/components/parameters/XActorId"
+        - $ref: "#/components/parameters/XTeamId"
+        - $ref: "#/components/parameters/RequestId"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [request]
+                properties:
+                  request:
+                    $ref: "#/components/schemas/Request"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+components:
+  parameters:
+    RequestId:
+      name: id
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/Uuid"
+    XActorId:
+      name: x-actor-id
+      in: header
+      required: true
+      schema:
+        $ref: "#/components/schemas/Uuid"
+    XTeamId:
+      name: x-team-id
+      in: header
+      required: true
+      schema:
+        $ref: "#/components/schemas/Uuid"
+
+  responses:
+    BadRequest:
+      description: Bad Request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          examples:
+            badRequest:
+              value:
+                error:
+                  code: INVALID_INPUT
+                  message: Invalid input.
+                  status: 400
+    Forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          examples:
+            forbidden:
+              value:
+                error:
+                  code: FORBIDDEN
+                  message: You are not allowed to perform this action.
+                  status: 403
+    NotFound:
+      description: Not Found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          examples:
+            notFound:
+              value:
+                error:
+                  code: NOT_FOUND
+                  message: Request not found.
+                  status: 404
+    Conflict:
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          examples:
+            conflict:
+              value:
+                error:
+                  code: STATE_CONFLICT
+                  message: Operation is not allowed in current status.
+                  status: 409
+
+  schemas:
+    Uuid:
+      type: string
+      format: uuid
+
+    RequestStatus:
+      type: string
+      enum: [Draft, Pending, Approved, Rejected, Deleted]
+
+    ApprovalActionType:
+      type: string
+      enum: [Approved, Rejected]
+
+    Request:
+      type: object
+      required:
+        - id
+        - teamId
+        - title
+        - body
+        - status
+        - createdBy
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          $ref: "#/components/schemas/Uuid"
+        teamId:
+          $ref: "#/components/schemas/Uuid"
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        body:
+          type: string
+          minLength: 1
+          maxLength: 5000
+        status:
+          $ref: "#/components/schemas/RequestStatus"
+        createdBy:
+          $ref: "#/components/schemas/Uuid"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        deletedAt:
+          type: [string, "null"]
+          format: date-time
+
+    Approval:
+      type: object
+      required:
+        - id
+        - requestId
+        - actedBy
+        - actionType
+        - createdAt
+      properties:
+        id:
+          $ref: "#/components/schemas/Uuid"
+        requestId:
+          $ref: "#/components/schemas/Uuid"
+        actedBy:
+          $ref: "#/components/schemas/Uuid"
+        actionType:
+          $ref: "#/components/schemas/ApprovalActionType"
+        reason:
+          type: [string, "null"]
+          maxLength: 1000
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateRequestBody:
+      type: object
+      required: [title, body]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        body:
+          type: string
+          minLength: 1
+          maxLength: 5000
+
+    UpdateRequestBody:
+      type: object
+      minProperties: 1
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        body:
+          type: string
+          minLength: 1
+          maxLength: 5000
+
+    DecisionBody:
+      type: object
+      properties:
+        reason:
+          type: string
+          maxLength: 1000
+
+    ErrorObject:
+      type: object
+      required: [code, message, status]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        status:
+          type: integer
+
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          $ref: "#/components/schemas/ErrorObject"
+
+    ListRequestsResponse:
+      type: object
+      required: [items, page, limit, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Request"
+        page:
+          type: integer
+          minimum: 1
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 100
+        total:
+          type: integer
+          minimum: 0
