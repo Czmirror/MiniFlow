@@ -1,1 +1,1 @@
-export type Status = "Draft" | "Pending";
+export type Status = "Draft" | "Pending" | "Approved" | "Rejected" | "Deleted";
