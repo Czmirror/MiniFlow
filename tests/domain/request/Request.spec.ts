@@ -68,6 +68,26 @@ const cases: Case[] = [
 ];
 
 describe("Request state transition table T01-T23", () => {
+  it("creates request with default metadata", () => {
+    const request = new Request();
+
+    expect(request.teamId).toBe("team-1");
+    expect(request.createdBy).toBe("user-1");
+    expect(request.createdAt).toBeInstanceOf(Date);
+    expect(request.updatedAt).toBeInstanceOf(Date);
+  });
+
+  it("updates updatedAt when state changes", () => {
+    const request = new Request({
+      createdAt: new Date("2026-01-01T00:00:00.000Z"),
+      updatedAt: new Date("2026-01-01T00:00:00.000Z")
+    });
+
+    request.submit();
+
+    expect(request.updatedAt.getTime()).toBeGreaterThan(request.createdAt.getTime());
+  });
+
   it.each(cases)("$id", (c) => {
     const actorId = "actor-1";
     const policy = createPolicy(c.policyAllowed ?? true);

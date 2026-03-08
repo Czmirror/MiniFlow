@@ -5,6 +5,10 @@ import type { Status } from "./Status";
 
 export class Request {
   readonly id: string;
+  readonly teamId: string;
+  readonly createdBy: string;
+  readonly createdAt: Date;
+  updatedAt: Date;
   status: Status;
   title: string;
   body: string;
@@ -13,6 +17,10 @@ export class Request {
 
   constructor(params?: {
     id?: string;
+    teamId?: string;
+    createdBy?: string;
+    createdAt?: Date;
+    updatedAt?: Date;
     status?: Status;
     title?: string;
     body?: string;
@@ -20,6 +28,10 @@ export class Request {
     approvals?: Approval[];
   }) {
     this.id = params?.id ?? "req-1";
+    this.teamId = params?.teamId ?? "team-1";
+    this.createdBy = params?.createdBy ?? "user-1";
+    this.createdAt = params?.createdAt ?? new Date();
+    this.updatedAt = params?.updatedAt ?? this.createdAt;
     this.status = params?.status ?? "Draft";
     this.title = params?.title ?? "title";
     this.body = params?.body ?? "body";
@@ -32,6 +44,7 @@ export class Request {
   submit(): void {
     this.assertStatus("Draft", "submit is only allowed in Draft");
     this.status = "Pending";
+    this.touch();
     this.assertInvariants();
   }
 
@@ -43,6 +56,7 @@ export class Request {
     if (typeof input.body === "string") {
       this.body = input.body;
     }
+    this.touch();
     this.assertInvariants();
   }
 
@@ -62,6 +76,7 @@ export class Request {
       })
     );
     this.status = "Approved";
+    this.touch();
     this.assertInvariants();
   }
 
@@ -81,12 +96,14 @@ export class Request {
       })
     );
     this.status = "Rejected";
+    this.touch();
     this.assertInvariants();
   }
 
   revise(_actorId: string): void {
     this.assertStatus("Rejected", "revise is only allowed in Rejected");
     this.status = "Draft";
+    this.touch();
     this.assertInvariants();
   }
 
@@ -96,6 +113,7 @@ export class Request {
     }
     this.status = "Deleted";
     this.deletedAt = new Date();
+    this.touch();
     this.assertInvariants();
   }
 
@@ -110,6 +128,10 @@ export class Request {
     if (hasDecision) {
       throw new DomainError("duplicate decision", 409, "STATE_CONFLICT");
     }
+  }
+
+  private touch(): void {
+    this.updatedAt = new Date();
   }
 
   private assertInvariants(): void {

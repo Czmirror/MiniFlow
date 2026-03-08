@@ -44,14 +44,20 @@ describe("CreateDraft", () => {
 
     const request = await useCase.execute({
       requestId: "req-create",
+      teamId: "team-9",
+      createdBy: "user-9",
       title: "new title",
       body: "new body"
     });
 
     expect(request.id).toBe("req-create");
+    expect(request.teamId).toBe("team-9");
+    expect(request.createdBy).toBe("user-9");
     expect(request.status).toBe("Draft");
     expect(request.title).toBe("new title");
     expect(request.body).toBe("new body");
+    expect(request.createdAt).toBeInstanceOf(Date);
+    expect(request.updatedAt).toBeInstanceOf(Date);
     expect(repo.saveCalled).toBe(1);
   });
 });
@@ -92,8 +98,15 @@ describe("SubmitRequest", () => {
 describe("UpdateRequest", () => {
   it("success: Draftの内容を更新して保存する", async () => {
     const repo = new InMemoryRequestRepository();
-    const request = new Request({ id: "req-update", title: "before", body: "before" });
+    const request = new Request({
+      id: "req-update",
+      title: "before",
+      body: "before",
+      createdAt: new Date("2026-01-01T00:00:00.000Z"),
+      updatedAt: new Date("2026-01-01T00:00:00.000Z")
+    });
     repo.seed(request);
+    const updatedAtBefore = request.updatedAt;
 
     const useCase = new UpdateRequest(repo);
     await useCase.execute({ requestId: "req-update", title: "after", body: "after" });
@@ -101,6 +114,7 @@ describe("UpdateRequest", () => {
     expect(request.title).toBe("after");
     expect(request.body).toBe("after");
     expect(request.status).toBe("Draft");
+    expect(request.updatedAt.getTime()).toBeGreaterThan(updatedAtBefore.getTime());
     expect(repo.saveCalled).toBe(1);
   });
 
