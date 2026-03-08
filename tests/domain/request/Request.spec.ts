@@ -88,6 +88,57 @@ describe("Request state transition table T01-T23", () => {
     expect(request.updatedAt.getTime()).toBeGreaterThan(request.createdAt.getTime());
   });
 
+  it("allows Pending with past Rejected history", () => {
+    const request = new Request({
+      status: "Pending",
+      approvals: [
+        new Approval({
+          requestId: "req-1",
+          actedBy: "actor-1",
+          actionType: "Rejected"
+        })
+      ]
+    });
+
+    expect(request.status).toBe("Pending");
+    expect(request.approvals).toHaveLength(1);
+  });
+
+  it("rejects Pending with Approved history", () => {
+    expect(() =>
+      new Request({
+        status: "Pending",
+        approvals: [
+          new Approval({
+            requestId: "req-1",
+            actedBy: "actor-1",
+            actionType: "Approved"
+          })
+        ]
+      })
+    ).toThrow(DomainError);
+  });
+
+  it("rejects Approved with multiple Approved histories", () => {
+    expect(() =>
+      new Request({
+        status: "Approved",
+        approvals: [
+          new Approval({
+            requestId: "req-1",
+            actedBy: "actor-1",
+            actionType: "Approved"
+          }),
+          new Approval({
+            requestId: "req-1",
+            actedBy: "actor-2",
+            actionType: "Approved"
+          })
+        ]
+      })
+    ).toThrow(DomainError);
+  });
+
   it.each(cases)("$id", (c) => {
     const actorId = "actor-1";
     const policy = createPolicy(c.policyAllowed ?? true);

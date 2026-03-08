@@ -141,17 +141,20 @@ export class Request {
       throw new DomainError("invalid deleted state", 409, "STATE_CONFLICT");
     }
 
+    const approvedCount = this.approvals.filter((approval) => approval.actionType === "Approved").length;
+    const rejectedCount = this.approvals.filter((approval) => approval.actionType === "Rejected").length;
+
     if (this.status === "Approved") {
-      const hasApproved = this.approvals.some((approval) => approval.actionType === "Approved");
-      if (!hasApproved) {
-        throw new DomainError("approved status requires approval record", 409, "STATE_CONFLICT");
+      if (approvedCount !== 1) {
+        throw new DomainError("approved status requires exactly one approved record", 409, "STATE_CONFLICT");
       }
+    } else if (approvedCount !== 0) {
+      throw new DomainError("non-approved status cannot contain approved records", 409, "STATE_CONFLICT");
     }
 
     if (this.status === "Rejected") {
-      const hasRejected = this.approvals.some((approval) => approval.actionType === "Rejected");
-      if (!hasRejected) {
-        throw new DomainError("rejected status requires reject record", 409, "STATE_CONFLICT");
+      if (rejectedCount < 1) {
+        throw new DomainError("rejected status requires at least one rejected record", 409, "STATE_CONFLICT");
       }
     }
   }
