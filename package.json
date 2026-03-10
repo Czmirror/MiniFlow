@@ -2,16 +2,13 @@
   "name": "miniflow",
   "version": "0.1.0",
   "private": true,
-  "type": "module",
+  "packageManager": "pnpm@10.6.3",
   "scripts": {
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "openapi:types": "openapi-typescript docs/openapi.yaml -o src/shared/api-types.ts"
+    "dev:web": "pnpm --filter @miniflow/web dev",
+    "dev:api": "pnpm --filter @miniflow/api dev",
+    "dev": "pnpm --parallel --filter @miniflow/api --filter @miniflow/web dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck"
   },
-  "devDependencies": {
-    "@types/node": "^24.0.0",
-    "openapi-typescript": "^7.13.0",
-    "typescript": "^5.8.0",
-    "vitest": "^3.2.4"
-  }
+  "devDependencies": {}
 }
