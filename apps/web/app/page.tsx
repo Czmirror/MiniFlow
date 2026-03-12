@@ -1,3 +1,4 @@
+import { CreateRequestPanel } from "../src/components/CreateRequestPanel";
 import { HealthCheckPanel } from "../src/components/HealthCheckPanel";
 
 export default function HomePage() {
@@ -27,10 +28,11 @@ export default function HomePage() {
           MiniFlow
         </h1>
         <p style={{ marginTop: 0, marginBottom: "1.5rem", lineHeight: 1.6 }}>
-          Local health check for the API and PostgreSQL connection.
+          Local health check and draft request creation for the API and PostgreSQL connection.
         </p>
 
         <HealthCheckPanel />
+        <CreateRequestPanel />
       </section>
     </main>
   );

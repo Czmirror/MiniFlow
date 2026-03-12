@@ -17,9 +17,6 @@ paths:
       tags: [Requests]
       summary: Create draft request
       operationId: createRequest
-      parameters:
-        - $ref: "#/components/parameters/XActorId"
-        - $ref: "#/components/parameters/XTeamId"
       requestBody:
         required: true
         content:
@@ -32,15 +29,11 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required: [request]
-                properties:
-                  request:
-                    $ref: "#/components/schemas/Request"
+                $ref: "#/components/schemas/Request"
         "400":
           $ref: "#/components/responses/BadRequest"
-        "403":
-          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
     get:
       tags: [Requests]
       summary: List requests
@@ -390,6 +383,19 @@ components:
                   code: STATE_CONFLICT
                   message: Operation is not allowed in current status.
                   status: 409
+    InternalServerError:
+      description: Internal Server Error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          examples:
+            internalServerError:
+              value:
+                error:
+                  code: INTERNAL_SERVER_ERROR
+                  message: Unexpected server error.
+                  status: 500
 
   schemas:
     Uuid:
@@ -468,8 +474,12 @@ components:
 
     CreateRequestBody:
       type: object
-      required: [title, body]
+      required: [teamId, title, body]
       properties:
+        teamId:
+          type: string
+          minLength: 1
+          maxLength: 200
         title:
           type: string
           minLength: 1

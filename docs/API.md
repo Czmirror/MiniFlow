@@ -63,6 +63,7 @@ Draftを作成する。
 Request:
 ```json
 {
+  "teamId": "team-1",
   "title": "稟議: ノートPC購入",
   "body": "業務用端末の更新申請"
 }
@@ -71,21 +72,23 @@ Request:
 Response `201`:
 ```json
 {
-  "request": {
-    "id": "uuid",
-    "teamId": "uuid",
-    "title": "稟議: ノートPC購入",
-    "body": "業務用端末の更新申請",
-    "status": "Draft",
-    "createdBy": "uuid",
-    "createdAt": "2026-03-01T00:00:00.000Z",
-    "updatedAt": "2026-03-01T00:00:00.000Z",
-    "deletedAt": null
-  }
+  "id": "uuid",
+  "teamId": "team-1",
+  "title": "稟議: ノートPC購入",
+  "body": "業務用端末の更新申請",
+  "status": "Draft",
+  "createdBy": "00000000-0000-0000-0000-000000000001",
+  "createdAt": "2026-03-01T00:00:00.000Z",
+  "updatedAt": "2026-03-01T00:00:00.000Z",
+  "deletedAt": null
 }
 ```
 
-Errors: `400`, `403`
+実装メモ:
+- `createdBy` は暫定的に API 側で固定 UUID を設定する
+- `teamId`, `title`, `body` が必須
+
+Errors: `400`, `500`
 
 ### 5.2 PATCH /requests/:id
 Draftの内容を更新する（MVPではDraftのみ）。

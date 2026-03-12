@@ -1,7 +1,7 @@
 # MiniFlow Week 1
 
 MiniFlow is a monorepo for a small approval workflow system.
-Week 1 focuses on one thing only: a reproducible local development base where `web + api + db` start and talk to each other.
+Week 1 focuses on a reproducible local development base where `web + api + db` start, talk to each other, and save the first `Draft Request`.
 
 ## Why this structure
 - `apps/web`: Next.js frontend
@@ -56,6 +56,13 @@ The container starts PostgreSQL on `localhost:5432` with:
 - password: `miniflow`
 - database: `miniflow`
 
+## Run Prisma migration
+Create the `requests` table before starting the API.
+
+```bash
+pnpm db:migrate -- --name init_requests
+```
+
 ## Start the API
 ```bash
 pnpm dev:api
@@ -75,6 +82,13 @@ Manual check:
 curl http://localhost:3001/health
 ```
 
+Request creation check:
+```bash
+curl -X POST http://localhost:3001/requests \
+  -H 'content-type: application/json' \
+  -d '{"teamId":"team-1","title":"First draft","body":"Created from curl"}'
+```
+
 ## Start the web app
 In another terminal:
 
@@ -82,20 +96,18 @@ In another terminal:
 pnpm dev:web
 ```
 
-Open [http://localhost:3100](http://localhost:3100) and press `API health check 実行`.
-The page should display the `/health` response from the API.
+Open [http://localhost:3100](http://localhost:3100), press `API health check 実行`, then submit the `POST /requests` form.
+The page should display both the `/health` response and the created draft request response from the API.
 
 ## Notes
-- This week does not implement approval workflow logic in the API.
-- Database access is only a connectivity check through `SELECT 1`.
-- Prisma is not wired yet. It remains a candidate for the next phase.
-- Existing root-level prototype code is kept for reference and is not part of the week 1 runtime path.
+- This week still does not implement approval workflow logic in the API.
+- The API now persists only `Draft` requests. Approval, reject, revise, and delete APIs are not wired yet.
+- `createdBy` is temporarily injected in the API as a fixed UUID until authentication exists.
+- Existing root-level prototype code is kept for reference. The runtime path for new API work now lives under `apps/api/src/domain`.
 
 ## Next steps
-- Add Prisma schema and migrations
-- Move the current Request prototype into `apps/api/src/domain`
-- Add repository implementations in `apps/api/src/infrastructure`
-- Add request creation/read endpoints
+- Expand the new `apps/api/src/domain/request` model beyond draft creation
+- Add request read endpoints
 - Add frontend request list and detail screens
 
 ## Related documents
