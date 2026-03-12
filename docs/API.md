@@ -7,7 +7,7 @@ MiniFlow MVPのHTTP API契約を定義する。
 ## 2. 共通仕様
 - Base URL: `/api/v1`
 - Content-Type: `application/json`
-- 認証: MVPでは簡易化し、`x-actor-id`, `x-team-id` ヘッダを利用（本実装でJWT等へ置換可能）
+- 認証: 未実装。`createdBy` は API 側で仮固定値を設定する
 - ID形式: `uuid`
 
 ## 3. エラー形式
@@ -101,9 +101,26 @@ Request:
 }
 ```
 
-Response `200`: 更新後の `request`
+Response `200`:
+```json
+{
+  "id": "uuid",
+  "teamId": "team-1",
+  "title": "稟議: ノートPC購入（更新）",
+  "body": "業務用端末の更新申請（理由追記）",
+  "status": "Draft",
+  "createdBy": "00000000-0000-0000-0000-000000000001",
+  "createdAt": "2026-03-01T00:00:00.000Z",
+  "updatedAt": "2026-03-01T00:05:00.000Z",
+  "deletedAt": null
+}
+```
 
-Errors: `400`, `403`, `404`, `409`
+実装メモ:
+- `Draft` 以外は `409`
+- `title` または `body` の少なくとも片方が必要
+
+Errors: `400`, `404`, `409`, `500`
 
 ### 5.3 POST /requests/:id/submit
 `Draft -> Pending`
@@ -111,15 +128,23 @@ Errors: `400`, `403`, `404`, `409`
 Response `200`:
 ```json
 {
-  "request": {
-    "id": "uuid",
-    "status": "Pending",
-    "updatedAt": "2026-03-01T00:10:00.000Z"
-  }
+  "id": "uuid",
+  "teamId": "team-1",
+  "title": "稟議: ノートPC購入",
+  "body": "業務用端末の更新申請",
+  "status": "Pending",
+  "createdBy": "00000000-0000-0000-0000-000000000001",
+  "createdAt": "2026-03-01T00:00:00.000Z",
+  "updatedAt": "2026-03-01T00:10:00.000Z",
+  "deletedAt": null
 }
 ```
 
-Errors: `403`, `404`, `409`
+実装メモ:
+- `Draft` からのみ `Pending` へ遷移する
+- 現在は単段承認MVPの前段として submit のみ実装
+
+Errors: `400`, `404`, `409`, `500`
 
 ### 5.4 POST /requests/:id/approve
 `Pending -> Approved`。成功時にApprovalを1件追加する。
@@ -214,30 +239,51 @@ Query:
 Response `200`:
 ```json
 {
-  "items": [],
+  "items": [
+    {
+      "id": "uuid",
+      "teamId": "team-1",
+      "title": "稟議: ノートPC購入",
+      "body": "業務用端末の更新申請",
+      "status": "Draft",
+      "createdBy": "00000000-0000-0000-0000-000000000001",
+      "createdAt": "2026-03-01T00:00:00.000Z",
+      "updatedAt": "2026-03-01T00:00:00.000Z",
+      "deletedAt": null
+    }
+  ],
   "page": 1,
   "limit": 20,
   "total": 0
 }
 ```
 
-Errors: `400`, `403`
+実装メモ:
+- `teamId` は必須
+- `status` を省略した場合、`Deleted` は除外される
+- `includeDeleted=true` を付けると `Deleted` も対象に含める
+
+Errors: `400`, `500`
 
 ### 5.9 GET /requests/:id
-Request詳細とApproval履歴を取得する。
+Request詳細を取得する。
 
 Response `200`:
 ```json
 {
-  "request": {
-    "id": "uuid",
-    "status": "Rejected"
-  },
-  "approvals": []
+  "id": "uuid",
+  "teamId": "team-1",
+  "title": "稟議: ノートPC購入",
+  "body": "業務用端末の更新申請",
+  "status": "Draft",
+  "createdBy": "00000000-0000-0000-0000-000000000001",
+  "createdAt": "2026-03-01T00:00:00.000Z",
+  "updatedAt": "2026-03-01T00:00:00.000Z",
+  "deletedAt": null
 }
 ```
 
-Errors: `403`, `404`
+Errors: `400`, `404`, `500`
 
 ## 6. 状態遷移APIマッピング
 - `submit` : Draftのみ許可

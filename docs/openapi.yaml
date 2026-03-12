@@ -39,13 +39,11 @@ paths:
       summary: List requests
       operationId: listRequests
       parameters:
-        - $ref: "#/components/parameters/XActorId"
-        - $ref: "#/components/parameters/XTeamId"
         - name: teamId
           in: query
           required: true
           schema:
-            $ref: "#/components/schemas/Uuid"
+            type: string
         - name: status
           in: query
           required: false
@@ -93,8 +91,8 @@ paths:
                 $ref: "#/components/schemas/ListRequestsResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
-        "403":
-          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
 
   /requests/{id}:
     patch:
@@ -102,8 +100,6 @@ paths:
       summary: Update request (Draft only)
       operationId: updateRequest
       parameters:
-        - $ref: "#/components/parameters/XActorId"
-        - $ref: "#/components/parameters/XTeamId"
         - $ref: "#/components/parameters/RequestId"
       requestBody:
         required: true
@@ -117,26 +113,20 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required: [request]
-                properties:
-                  request:
-                    $ref: "#/components/schemas/Request"
+                $ref: "#/components/schemas/Request"
         "400":
           $ref: "#/components/responses/BadRequest"
-        "403":
-          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
     get:
       tags: [Requests]
-      summary: Get request detail with approvals
+      summary: Get request detail
       operationId: getRequest
       parameters:
-        - $ref: "#/components/parameters/XActorId"
-        - $ref: "#/components/parameters/XTeamId"
         - $ref: "#/components/parameters/RequestId"
       responses:
         "200":
@@ -144,19 +134,13 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required: [request, approvals]
-                properties:
-                  request:
-                    $ref: "#/components/schemas/Request"
-                  approvals:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/Approval"
-        "403":
-          $ref: "#/components/responses/Forbidden"
+                $ref: "#/components/schemas/Request"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
 
   /requests/{id}/submit:
     post:
@@ -164,8 +148,6 @@ paths:
       summary: Submit request (Draft -> Pending)
       operationId: submitRequest
       parameters:
-        - $ref: "#/components/parameters/XActorId"
-        - $ref: "#/components/parameters/XTeamId"
         - $ref: "#/components/parameters/RequestId"
       responses:
         "200":
@@ -173,17 +155,15 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required: [request]
-                properties:
-                  request:
-                    $ref: "#/components/schemas/Request"
-        "403":
-          $ref: "#/components/responses/Forbidden"
+                $ref: "#/components/schemas/Request"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
 
   /requests/{id}/approve:
     post:
@@ -425,7 +405,7 @@ components:
         id:
           $ref: "#/components/schemas/Uuid"
         teamId:
-          $ref: "#/components/schemas/Uuid"
+          type: string
         title:
           type: string
           minLength: 1

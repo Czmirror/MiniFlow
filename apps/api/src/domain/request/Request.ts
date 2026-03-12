@@ -1,5 +1,11 @@
 import type { Status } from "./Status.js";
+import { StateConflictError } from "../../application/errors/StateConflictError.js";
 
+/**
+ * Request is kept immutable in the API layer so state transitions stay explicit
+ * when persistence and HTTP concerns expand. If later endpoints add approvals or
+ * delete/revise flows, update these factory-style methods together with the docs.
+ */
 export class Request {
   readonly id: string;
   readonly teamId: string;
@@ -72,6 +78,46 @@ export class Request {
     return new Request(params);
   }
 
+  /**
+   * Draft updates are limited to editable fields. When additional fields become
+   * user-editable, extend this method instead of patching route-level DTO logic.
+   */
+  update(input: { title?: string; body?: string; now?: Date }): Request {
+    this.assertStatus("Draft", "update is only allowed in Draft");
+
+    return new Request({
+      id: this.id,
+      teamId: this.teamId,
+      createdBy: this.createdBy,
+      createdAt: this.createdAt,
+      updatedAt: input.now ?? new Date(),
+      deletedAt: this.deletedAt,
+      title: typeof input.title === "string" ? input.title.trim() : this.title,
+      body: typeof input.body === "string" ? input.body.trim() : this.body,
+      status: this.status
+    });
+  }
+
+  /**
+   * Single-step submit keeps the MVP state machine small. Multi-step approvals
+   * should change this transition in domain first, not in the HTTP layer.
+   */
+  submit(now?: Date): Request {
+    this.assertStatus("Draft", "submit is only allowed in Draft");
+
+    return new Request({
+      id: this.id,
+      teamId: this.teamId,
+      createdBy: this.createdBy,
+      createdAt: this.createdAt,
+      updatedAt: now ?? new Date(),
+      deletedAt: this.deletedAt,
+      title: this.title,
+      body: this.body,
+      status: "Pending"
+    });
+  }
+
   private assertInvariants(): void {
     if (this.title.trim().length === 0) {
       throw new Error("title must not be empty");
@@ -89,6 +135,12 @@ export class Request {
     const deletedByTimestamp = this.deletedAt !== null;
     if (deletedByStatus !== deletedByTimestamp) {
       throw new Error("deleted status and deletedAt must stay in sync");
+    }
+  }
+
+  private assertStatus(expected: Status, message: string): void {
+    if (this.status !== expected) {
+      throw new StateConflictError(message);
     }
   }
 }

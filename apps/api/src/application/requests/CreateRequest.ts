@@ -11,6 +11,10 @@ export type CreateRequestInput = {
   body: string;
 };
 
+/**
+ * createdBy is intentionally injected here until authentication exists.
+ * Replace this with authenticated actor resolution instead of widening the API body.
+ */
 export async function createRequest(
   repository: RequestRepository,
   input: CreateRequestInput

@@ -1,7 +1,29 @@
-# MiniFlow Week 1
+# MiniFlow
 
-MiniFlow is a monorepo for a small approval workflow system.
-Week 1 focuses on a reproducible local development base where `web + api + db` start, talk to each other, and save the first `Draft Request`.
+MiniFlow is a prototype approval workflow system designed to explore SaaS-style backend architecture.
+
+The project focuses on building a small but structured workflow application using a modern TypeScript monorepo architecture.
+
+It is also used as an experiment for AI-assisted development using tools such as Codex and Claude Code.
+
+## Architecture
+
+MiniFlow follows a simple monorepo architecture.
+
+- `apps/web`  
+  Next.js frontend
+- `apps/api`  
+  Fastify backend API
+- `packages/shared`  
+  Shared TypeScript types
+- `docs`  
+  Architecture and domain documentation
+
+The backend is structured with domain / application / infrastructure layers so the system can grow into a larger workflow platform.
+
+## Current Scope
+
+The current milestone focuses on a reproducible local development base where `web + api + db` start, talk to each other, and save or read `Draft Request` records.
 
 ## Why this structure
 - `apps/web`: Next.js frontend
