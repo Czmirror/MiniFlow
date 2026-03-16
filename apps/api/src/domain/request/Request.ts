@@ -1,5 +1,6 @@
 import type { Status } from "./Status.js";
 import { StateConflictError } from "../../application/errors/StateConflictError.js";
+import { Approval } from "./Approval.js";
 
 /**
  * Request is kept immutable in the API layer so state transitions stay explicit
@@ -16,6 +17,7 @@ export class Request {
   readonly title: string;
   readonly body: string;
   readonly status: Status;
+  readonly approvals: Approval[];
 
   private constructor(params: {
     id: string;
@@ -27,6 +29,7 @@ export class Request {
     title: string;
     body: string;
     status: Status;
+    approvals: Approval[];
   }) {
     this.id = params.id;
     this.teamId = params.teamId;
@@ -37,6 +40,7 @@ export class Request {
     this.title = params.title;
     this.body = params.body;
     this.status = params.status;
+    this.approvals = params.approvals;
 
     this.assertInvariants();
   }
@@ -60,7 +64,8 @@ export class Request {
       status: "Draft",
       createdAt: timestamp,
       updatedAt: timestamp,
-      deletedAt: null
+      deletedAt: null,
+      approvals: []
     });
   }
 
@@ -74,8 +79,12 @@ export class Request {
     createdAt: Date;
     updatedAt: Date;
     deletedAt: Date | null;
+    approvals?: Approval[];
   }): Request {
-    return new Request(params);
+    return new Request({
+      ...params,
+      approvals: params.approvals ?? []
+    });
   }
 
   /**
@@ -94,7 +103,8 @@ export class Request {
       deletedAt: this.deletedAt,
       title: typeof input.title === "string" ? input.title.trim() : this.title,
       body: typeof input.body === "string" ? input.body.trim() : this.body,
-      status: this.status
+      status: this.status,
+      approvals: this.approvals
     });
   }
 
@@ -114,7 +124,121 @@ export class Request {
       deletedAt: this.deletedAt,
       title: this.title,
       body: this.body,
-      status: "Pending"
+      status: "Pending",
+      approvals: this.approvals
+    });
+  }
+
+  /**
+   * Approve/reject append audit history and finalize the current round. If the
+   * approval model becomes multi-step, change both the status transition and
+   * the invariant rules here before touching HTTP or repository code.
+   */
+  approve(input: { actorId: string; approvalId: string; reason?: string; now?: Date }): {
+    request: Request;
+    approval: Approval;
+  } {
+    this.assertStatus("Pending", "approve is only allowed in Pending");
+
+    const approval = new Approval({
+      id: input.approvalId,
+      requestId: this.id,
+      actedBy: input.actorId,
+      actionType: "Approved",
+      reason: input.reason,
+      createdAt: input.now
+    });
+
+    return {
+      approval,
+      request: new Request({
+        id: this.id,
+        teamId: this.teamId,
+        createdBy: this.createdBy,
+        createdAt: this.createdAt,
+        updatedAt: input.now ?? new Date(),
+        deletedAt: this.deletedAt,
+        title: this.title,
+        body: this.body,
+        status: "Approved",
+        approvals: [...this.approvals, approval]
+      })
+    };
+  }
+
+  reject(input: { actorId: string; approvalId: string; reason?: string; now?: Date }): {
+    request: Request;
+    approval: Approval;
+  } {
+    this.assertStatus("Pending", "reject is only allowed in Pending");
+
+    const approval = new Approval({
+      id: input.approvalId,
+      requestId: this.id,
+      actedBy: input.actorId,
+      actionType: "Rejected",
+      reason: input.reason,
+      createdAt: input.now
+    });
+
+    return {
+      approval,
+      request: new Request({
+        id: this.id,
+        teamId: this.teamId,
+        createdBy: this.createdBy,
+        createdAt: this.createdAt,
+        updatedAt: input.now ?? new Date(),
+        deletedAt: this.deletedAt,
+        title: this.title,
+        body: this.body,
+        status: "Rejected",
+        approvals: [...this.approvals, approval]
+      })
+    };
+  }
+
+  /**
+   * revise keeps prior rejection history on the same request for MVP auditability.
+   * If versioned resubmission is introduced later, this is the method to replace.
+   */
+  revise(input?: { now?: Date }): Request {
+    this.assertStatus("Rejected", "revise is only allowed in Rejected");
+
+    return new Request({
+      id: this.id,
+      teamId: this.teamId,
+      createdBy: this.createdBy,
+      createdAt: this.createdAt,
+      updatedAt: input?.now ?? new Date(),
+      deletedAt: null,
+      title: this.title,
+      body: this.body,
+      status: "Draft",
+      approvals: this.approvals
+    });
+  }
+
+  /**
+   * delete is logical only. If physical deletion is ever introduced, keep this
+   * method as the domain rule for whether deletion is allowed.
+   */
+  delete(input?: { now?: Date }): Request {
+    if (this.status !== "Draft" && this.status !== "Rejected") {
+      throw new StateConflictError("delete is only allowed in Draft/Rejected");
+    }
+
+    return new Request({
+      id: this.id,
+      teamId: this.teamId,
+      createdBy: this.createdBy,
+      createdAt: this.createdAt,
+      updatedAt: input?.now ?? new Date(),
+      deletedAt: input?.now ?? new Date(),
+      title: this.title,
+      body: this.body,
+      status: "Deleted",
+      approvals: this.approvals
     });
   }
 
@@ -135,6 +259,21 @@ export class Request {
     const deletedByTimestamp = this.deletedAt !== null;
     if (deletedByStatus !== deletedByTimestamp) {
       throw new Error("deleted status and deletedAt must stay in sync");
+    }
+
+    const approvedCount = this.approvals.filter((approval) => approval.actionType === "Approved").length;
+    const rejectedCount = this.approvals.filter((approval) => approval.actionType === "Rejected").length;
+
+    if (this.status === "Approved") {
+      if (approvedCount !== 1) {
+        throw new Error("approved status requires exactly one approved record");
+      }
+    } else if (approvedCount !== 0) {
+      throw new Error("non-approved status cannot contain approved records");
+    }
+
+    if (this.status === "Rejected" && rejectedCount < 1) {
+      throw new Error("rejected status requires at least one rejected record");
     }
   }
 

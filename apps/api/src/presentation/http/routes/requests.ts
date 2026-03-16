@@ -4,8 +4,12 @@ import type { ListRequestsInput } from "@miniflow/shared";
 import { InputValidationError } from "../../../application/errors/InputValidationError.js";
 import { StateConflictError } from "../../../application/errors/StateConflictError.js";
 import { createRequest } from "../../../application/requests/CreateRequest.js";
+import { approveRequest } from "../../../application/requests/ApproveRequest.js";
+import { deleteRequest } from "../../../application/requests/DeleteRequest.js";
 import { getRequestById } from "../../../application/requests/GetRequestById.js";
 import { listRequests } from "../../../application/requests/ListRequests.js";
+import { rejectRequest } from "../../../application/requests/RejectRequest.js";
+import { reviseRequest } from "../../../application/requests/ReviseRequest.js";
 import { submitRequest } from "../../../application/requests/SubmitRequest.js";
 import { updateRequest } from "../../../application/requests/UpdateRequest.js";
 import { PrismaRequestRepository } from "../../../infrastructure/repositories/PrismaRequestRepository.js";
@@ -19,7 +23,7 @@ export function registerRequestRoutes(server: FastifyInstance, prisma: PrismaCli
   const repository = new PrismaRequestRepository(prisma);
 
   server.post("/requests", async (request, reply) => {
-    const body = request.body as Partial<{
+    const body = (request.body ?? {}) as Partial<{
       teamId: string;
       title: string;
       body: string;
@@ -95,7 +99,7 @@ export function registerRequestRoutes(server: FastifyInstance, prisma: PrismaCli
 
   server.patch("/requests/:id", async (request, reply) => {
     const params = request.params as { id?: string };
-    const body = request.body as Partial<{
+    const body = (request.body ?? {}) as Partial<{
       title: string;
       body: string;
     }>;
@@ -144,6 +148,78 @@ export function registerRequestRoutes(server: FastifyInstance, prisma: PrismaCli
       return handleRouteError(request, reply, error, "failed to submit request");
     }
   });
+
+  server.post("/requests/:id/approve", async (request, reply) => {
+    const params = request.params as { id?: string };
+    const body = (request.body ?? {}) as Partial<{ reason: string }>;
+
+    try {
+      const approvedRequest = await approveRequest(repository, {
+        id: params.id ?? "",
+        reason: body.reason
+      });
+
+      if (!approvedRequest) {
+        return reply.code(404).send(notFoundError());
+      }
+
+      return reply.send(toRequestDto(approvedRequest));
+    } catch (error) {
+      return handleRouteError(request, reply, error, "failed to approve request");
+    }
+  });
+
+  server.post("/requests/:id/reject", async (request, reply) => {
+    const params = request.params as { id?: string };
+    const body = (request.body ?? {}) as Partial<{ reason: string }>;
+
+    try {
+      const rejectedRequest = await rejectRequest(repository, {
+        id: params.id ?? "",
+        reason: body.reason
+      });
+
+      if (!rejectedRequest) {
+        return reply.code(404).send(notFoundError());
+      }
+
+      return reply.send(toRequestDto(rejectedRequest));
+    } catch (error) {
+      return handleRouteError(request, reply, error, "failed to reject request");
+    }
+  });
+
+  server.post("/requests/:id/revise", async (request, reply) => {
+    const params = request.params as { id?: string };
+
+    try {
+      const revisedRequest = await reviseRequest(repository, params.id ?? "");
+
+      if (!revisedRequest) {
+        return reply.code(404).send(notFoundError());
+      }
+
+      return reply.send(toRequestDto(revisedRequest));
+    } catch (error) {
+      return handleRouteError(request, reply, error, "failed to revise request");
+    }
+  });
+
+  server.post("/requests/:id/delete", async (request, reply) => {
+    const params = request.params as { id?: string };
+
+    try {
+      const deletedRequest = await deleteRequest(repository, params.id ?? "");
+
+      if (!deletedRequest) {
+        return reply.code(404).send(notFoundError());
+      }
+
+      return reply.send(toRequestDto(deletedRequest));
+    } catch (error) {
+      return handleRouteError(request, reply, error, "failed to delete request");
+    }
+  });
 }
 
 function handleRouteError(
@@ -182,4 +258,14 @@ function handleRouteError(
       status: 500
     }
   });
+}
+
+function notFoundError() {
+  return {
+    error: {
+      code: "NOT_FOUND",
+      message: "request not found",
+      status: 404
+    }
+  };
 }

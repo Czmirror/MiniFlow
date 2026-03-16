@@ -1,4 +1,5 @@
 import type { Request } from "../../domain/request/Request.js";
+import type { Approval } from "../../domain/request/Approval.js";
 import type { ListRequestsInput } from "@miniflow/shared";
 
 export type NormalizedListRequestsInput = {
@@ -18,6 +19,8 @@ export type NormalizedListRequestsInput = {
 export interface RequestRepository {
   create(request: Request): Promise<Request>;
   update(request: Request): Promise<Request>;
+  approve(request: Request, approval: Approval): Promise<Request>;
+  reject(request: Request, approval: Approval): Promise<Request>;
   findById(id: string): Promise<Request | null>;
   list(input: NormalizedListRequestsInput): Promise<{
     items: Request[];

@@ -159,23 +159,23 @@ Request:
 Response `200`:
 ```json
 {
-  "request": {
-    "id": "uuid",
-    "status": "Approved",
-    "updatedAt": "2026-03-01T00:20:00.000Z"
-  },
-  "approval": {
-    "id": "uuid",
-    "requestId": "uuid",
-    "actedBy": "uuid",
-    "actionType": "Approved",
-    "reason": "予算内のため承認",
-    "createdAt": "2026-03-01T00:20:00.000Z"
-  }
+  "id": "uuid",
+  "teamId": "team-1",
+  "title": "稟議: ノートPC購入",
+  "body": "業務用端末の更新申請",
+  "status": "Approved",
+  "createdBy": "00000000-0000-0000-0000-000000000001",
+  "createdAt": "2026-03-01T00:00:00.000Z",
+  "updatedAt": "2026-03-01T00:20:00.000Z",
+  "deletedAt": null
 }
 ```
 
-Errors: `403`, `404`, `409`
+実装メモ:
+- `requests.status` 更新と `approvals` 追加は同一 transaction で保存する
+- 今回のレスポンスは `request` のみ返す
+
+Errors: `400`, `404`, `409`, `500`
 
 ### 5.5 POST /requests/:id/reject
 `Pending -> Rejected`。成功時にApprovalを1件追加する。
@@ -187,9 +187,26 @@ Request:
 }
 ```
 
-Response `200`: `status=Rejected` と `approval(actionType=Rejected)`
+Response `200`:
+```json
+{
+  "id": "uuid",
+  "teamId": "team-1",
+  "title": "稟議: ノートPC購入",
+  "body": "業務用端末の更新申請",
+  "status": "Rejected",
+  "createdBy": "00000000-0000-0000-0000-000000000001",
+  "createdAt": "2026-03-01T00:00:00.000Z",
+  "updatedAt": "2026-03-01T00:20:00.000Z",
+  "deletedAt": null
+}
+```
 
-Errors: `403`, `404`, `409`
+実装メモ:
+- `requests.status` 更新と `approvals` 追加は同一 transaction で保存する
+- 今回のレスポンスは `request` のみ返す
+
+Errors: `400`, `404`, `409`, `500`
 
 ### 5.6 POST /requests/:id/revise
 `Rejected -> Draft`（同一Requestを戻す）。MVPではApprovalを追加しない。
@@ -197,15 +214,19 @@ Errors: `403`, `404`, `409`
 Response `200`:
 ```json
 {
-  "request": {
-    "id": "uuid",
-    "status": "Draft",
-    "updatedAt": "2026-03-01T00:40:00.000Z"
-  }
+  "id": "uuid",
+  "teamId": "team-1",
+  "title": "稟議: ノートPC購入",
+  "body": "業務用端末の更新申請",
+  "status": "Draft",
+  "createdBy": "00000000-0000-0000-0000-000000000001",
+  "createdAt": "2026-03-01T00:00:00.000Z",
+  "updatedAt": "2026-03-01T00:40:00.000Z",
+  "deletedAt": null
 }
 ```
 
-Errors: `403`, `404`, `409`
+Errors: `400`, `404`, `409`, `500`
 
 ### 5.7 POST /requests/:id/delete
 論理削除。`Draft/Rejected -> Deleted`
@@ -213,16 +234,19 @@ Errors: `403`, `404`, `409`
 Response `200`:
 ```json
 {
-  "request": {
-    "id": "uuid",
-    "status": "Deleted",
-    "deletedAt": "2026-03-01T00:50:00.000Z",
-    "updatedAt": "2026-03-01T00:50:00.000Z"
-  }
+  "id": "uuid",
+  "teamId": "team-1",
+  "title": "稟議: ノートPC購入",
+  "body": "業務用端末の更新申請",
+  "status": "Deleted",
+  "createdBy": "00000000-0000-0000-0000-000000000001",
+  "createdAt": "2026-03-01T00:00:00.000Z",
+  "updatedAt": "2026-03-01T00:50:00.000Z",
+  "deletedAt": "2026-03-01T00:50:00.000Z"
 }
 ```
 
-Errors: `403`, `404`, `409`
+Errors: `400`, `404`, `409`, `500`
 
 ### 5.8 GET /requests
 一覧検索。デフォルトでDeletedは非表示。

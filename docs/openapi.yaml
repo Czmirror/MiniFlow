@@ -171,8 +171,6 @@ paths:
       summary: Approve request (Pending -> Approved)
       operationId: approveRequest
       parameters:
-        - $ref: "#/components/parameters/XActorId"
-        - $ref: "#/components/parameters/XTeamId"
         - $ref: "#/components/parameters/RequestId"
       requestBody:
         required: false
@@ -186,19 +184,15 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required: [request, approval]
-                properties:
-                  request:
-                    $ref: "#/components/schemas/Request"
-                  approval:
-                    $ref: "#/components/schemas/Approval"
-        "403":
-          $ref: "#/components/responses/Forbidden"
+                $ref: "#/components/schemas/Request"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
 
   /requests/{id}/reject:
     post:
@@ -206,8 +200,6 @@ paths:
       summary: Reject request (Pending -> Rejected)
       operationId: rejectRequest
       parameters:
-        - $ref: "#/components/parameters/XActorId"
-        - $ref: "#/components/parameters/XTeamId"
         - $ref: "#/components/parameters/RequestId"
       requestBody:
         required: false
@@ -221,19 +213,15 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required: [request, approval]
-                properties:
-                  request:
-                    $ref: "#/components/schemas/Request"
-                  approval:
-                    $ref: "#/components/schemas/Approval"
-        "403":
-          $ref: "#/components/responses/Forbidden"
+                $ref: "#/components/schemas/Request"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
 
   /requests/{id}/revise:
     post:
@@ -241,8 +229,6 @@ paths:
       summary: Revise request (Rejected -> Draft)
       operationId: reviseRequest
       parameters:
-        - $ref: "#/components/parameters/XActorId"
-        - $ref: "#/components/parameters/XTeamId"
         - $ref: "#/components/parameters/RequestId"
       responses:
         "200":
@@ -250,17 +236,15 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required: [request]
-                properties:
-                  request:
-                    $ref: "#/components/schemas/Request"
-        "403":
-          $ref: "#/components/responses/Forbidden"
+                $ref: "#/components/schemas/Request"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
 
   /requests/{id}/delete:
     post:
@@ -268,8 +252,6 @@ paths:
       summary: Logical delete request (Draft/Rejected -> Deleted)
       operationId: deleteRequest
       parameters:
-        - $ref: "#/components/parameters/XActorId"
-        - $ref: "#/components/parameters/XTeamId"
         - $ref: "#/components/parameters/RequestId"
       responses:
         "200":
@@ -277,17 +259,15 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required: [request]
-                properties:
-                  request:
-                    $ref: "#/components/schemas/Request"
-        "403":
-          $ref: "#/components/responses/Forbidden"
+                $ref: "#/components/schemas/Request"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
 
 components:
   parameters:
