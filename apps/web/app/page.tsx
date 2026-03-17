@@ -1,5 +1,6 @@
 import { CreateRequestPanel } from "../src/components/CreateRequestPanel";
 import { HealthCheckPanel } from "../src/components/HealthCheckPanel";
+import { RequestWorkflowPanel } from "../src/components/RequestWorkflowPanel";
 
 export default function HomePage() {
   return (
@@ -13,7 +14,7 @@ export default function HomePage() {
     >
       <section
         style={{
-          width: "min(640px, 100%)",
+          width: "min(880px, 100%)",
           background: "rgba(255,255,255,0.82)",
           border: "1px solid rgba(31,41,51,0.08)",
           borderRadius: "24px",
@@ -33,6 +34,7 @@ export default function HomePage() {
 
         <HealthCheckPanel />
         <CreateRequestPanel />
+        <RequestWorkflowPanel />
       </section>
     </main>
   );

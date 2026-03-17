@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
 import type { CreateRequestInput, RequestDto } from "@miniflow/shared";
-import { createRequest } from "../lib/createRequest";
+import { createRequest } from "../lib/requestApi";
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
 const initialForm: CreateRequestInput = {
