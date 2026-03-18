@@ -295,17 +295,33 @@ Request詳細を取得する。
 Response `200`:
 ```json
 {
-  "id": "uuid",
-  "teamId": "team-1",
-  "title": "稟議: ノートPC購入",
-  "body": "業務用端末の更新申請",
-  "status": "Draft",
-  "createdBy": "00000000-0000-0000-0000-000000000001",
-  "createdAt": "2026-03-01T00:00:00.000Z",
-  "updatedAt": "2026-03-01T00:00:00.000Z",
-  "deletedAt": null
+  "request": {
+    "id": "uuid",
+    "teamId": "team-1",
+    "title": "稟議: ノートPC購入",
+    "body": "業務用端末の更新申請",
+    "status": "Approved",
+    "createdBy": "00000000-0000-0000-0000-000000000001",
+    "createdAt": "2026-03-01T00:00:00.000Z",
+    "updatedAt": "2026-03-01T00:20:00.000Z",
+    "deletedAt": null
+  },
+  "approvals": [
+    {
+      "id": "uuid",
+      "requestId": "uuid",
+      "actedBy": "00000000-0000-0000-0000-000000000001",
+      "actionType": "Approved",
+      "reason": "予算内のため承認",
+      "createdAt": "2026-03-01T00:20:00.000Z"
+    }
+  ]
 }
 ```
+
+実装メモ:
+- 詳細APIだけ `request` と `approvals` を分けて返す
+- 一覧APIは軽量化のため `approvals` を含めない
 
 Errors: `400`, `404`, `500`
 

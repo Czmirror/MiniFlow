@@ -13,7 +13,7 @@ import { reviseRequest } from "../../../application/requests/ReviseRequest.js";
 import { submitRequest } from "../../../application/requests/SubmitRequest.js";
 import { updateRequest } from "../../../application/requests/UpdateRequest.js";
 import { PrismaRequestRepository } from "../../../infrastructure/repositories/PrismaRequestRepository.js";
-import { toRequestDto } from "../mappers/toRequestDto.js";
+import { toRequestDetailDto, toRequestDto } from "../mappers/toRequestDto.js";
 
 /**
  * Routes stay thin on purpose. If a request workflow rule changes, update the
@@ -58,7 +58,7 @@ export function registerRequestRoutes(server: FastifyInstance, prisma: PrismaCli
         });
       }
 
-      return reply.send(toRequestDto(foundRequest));
+      return reply.send(toRequestDetailDto(foundRequest));
     } catch (error) {
       return handleRouteError(request, reply, error, "failed to fetch request");
     }

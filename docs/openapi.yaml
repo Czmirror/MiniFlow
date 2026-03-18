@@ -134,7 +134,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Request"
+                $ref: "#/components/schemas/RequestDetail"
         "400":
           $ref: "#/components/responses/BadRequest"
         "404":
@@ -431,6 +431,19 @@ components:
         createdAt:
           type: string
           format: date-time
+
+    RequestDetail:
+      type: object
+      required:
+        - request
+        - approvals
+      properties:
+        request:
+          $ref: "#/components/schemas/Request"
+        approvals:
+          type: array
+          items:
+            $ref: "#/components/schemas/Approval"
 
     CreateRequestBody:
       type: object

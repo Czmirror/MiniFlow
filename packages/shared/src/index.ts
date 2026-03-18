@@ -24,6 +24,20 @@ export type RequestDto = {
   deletedAt: string | null;
 };
 
+export type ApprovalDto = {
+  id: string;
+  requestId: string;
+  actedBy: string;
+  actionType: "Approved" | "Rejected";
+  reason: string | null;
+  createdAt: string;
+};
+
+export type RequestDetailDto = {
+  request: RequestDto;
+  approvals: ApprovalDto[];
+};
+
 export type ListRequestsInput = {
   teamId: string;
   status?: RequestStatus;

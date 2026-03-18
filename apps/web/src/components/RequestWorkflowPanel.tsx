@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
-import type { RequestDto } from "@miniflow/shared";
+import type { ApprovalDto, RequestDetailDto, RequestDto } from "@miniflow/shared";
 import {
   getRequest,
   listRequests,
@@ -22,6 +22,7 @@ export function RequestWorkflowPanel() {
   const [requests, setRequests] = useState<RequestDto[]>([]);
   const [selectedId, setSelectedId] = useState<string>("");
   const [selectedRequest, setSelectedRequest] = useState<RequestDto | null>(null);
+  const [approvals, setApprovals] = useState<ApprovalDto[]>([]);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [decisionReason, setDecisionReason] = useState("Approved from UI");
@@ -70,6 +71,7 @@ export function RequestWorkflowPanel() {
       if (!selectedId && response.items[0]) {
         setSelectedId(response.items[0].id);
         setSelectedRequest(response.items[0]);
+        setApprovals([]);
       }
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "Unknown error");
@@ -84,8 +86,9 @@ export function RequestWorkflowPanel() {
     setError(null);
 
     try {
-      const request = await getRequest(apiBaseUrl, id);
-      setSelectedRequest(request);
+      const detail = await getRequest(apiBaseUrl, id);
+      setSelectedRequest(detail.request);
+      setApprovals(detail.approvals);
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "Unknown error");
     } finally {
@@ -138,6 +141,8 @@ export function RequestWorkflowPanel() {
   async function syncSelectedRequest(request: RequestDto) {
     setSelectedRequest(request);
     setSelectedId(request.id);
+    const detail = await getRequest(apiBaseUrl, request.id);
+    setApprovals(detail.approvals);
     const response = await listRequests(apiBaseUrl, teamId, true);
     setRequests(response.items);
   }
@@ -174,6 +179,19 @@ export function RequestWorkflowPanel() {
         <p style={{ marginTop: 0, marginBottom: "0.75rem", color: "#52606d" }}>{summary}</p>
         {selectedRequest ? <pre style={{ margin: 0 }}>{JSON.stringify(selectedRequest, null, 2)}</pre> : null}
         {error ? <p style={{ marginTop: "0.75rem", marginBottom: 0, color: "#b42318" }}>{error}</p> : null}
+      </div>
+
+      <div style={panelStyle}>
+        <p style={{ marginTop: 0, marginBottom: "0.75rem", color: "#52606d" }}>Approvals history</p>
+        {selectedRequest ? (
+          approvals.length > 0 ? (
+            <pre style={{ margin: 0 }}>{JSON.stringify(approvals, null, 2)}</pre>
+          ) : (
+            <p style={{ margin: 0, color: "#52606d" }}>No approvals yet.</p>
+          )
+        ) : (
+          <p style={{ margin: 0, color: "#52606d" }}>Select a request to load approval history.</p>
+        )}
       </div>
 
       <form onSubmit={handleUpdate} style={{ display: "grid", gap: "0.75rem", marginTop: "1rem" }}>

@@ -1,4 +1,4 @@
-import type { CreateRequestInput, ListRequestsResponse, RequestDto } from "@miniflow/shared";
+import type { CreateRequestInput, ListRequestsResponse, RequestDetailDto, RequestDto } from "@miniflow/shared";
 
 /**
  * Keep HTTP details here so UI components can stay focused on user state.
@@ -26,12 +26,12 @@ export async function listRequests(apiBaseUrl: string, teamId: string, includeDe
   return parseResponse<ListRequestsResponse>(response);
 }
 
-export async function getRequest(apiBaseUrl: string, id: string): Promise<RequestDto> {
+export async function getRequest(apiBaseUrl: string, id: string): Promise<RequestDetailDto> {
   const response = await fetch(`${apiBaseUrl}/requests/${id}`, {
     cache: "no-store"
   });
 
-  return parseResponse<RequestDto>(response);
+  return parseResponse<RequestDetailDto>(response);
 }
 
 export async function updateRequest(apiBaseUrl: string, id: string, input: { title?: string; body?: string }): Promise<RequestDto> {
