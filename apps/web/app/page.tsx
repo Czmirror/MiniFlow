@@ -1,3 +1,4 @@
+import { AuthPanel } from "../src/components/AuthPanel";
 import { CreateRequestPanel } from "../src/components/CreateRequestPanel";
 import { HealthCheckPanel } from "../src/components/HealthCheckPanel";
 import { RequestWorkflowPanel } from "../src/components/RequestWorkflowPanel";
@@ -29,10 +30,11 @@ export default function HomePage() {
           MiniFlow
         </h1>
         <p style={{ marginTop: 0, marginBottom: "1.5rem", lineHeight: 1.6 }}>
-          Local health check and draft request creation for the API and PostgreSQL connection.
+          Local health check, cookie-based auth, and request workflow verification for the API and PostgreSQL connection.
         </p>
 
         <HealthCheckPanel />
+        <AuthPanel />
         <CreateRequestPanel />
         <RequestWorkflowPanel />
       </section>

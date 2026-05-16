@@ -7,7 +7,10 @@ MiniFlow MVPのHTTP API契約を定義する。
 ## 2. 共通仕様
 - Base URL: `/api/v1`
 - Content-Type: `application/json`
-- 認証: 未実装。`createdBy` は API 側で仮固定値を設定する
+- 認証:
+  - `httpOnly` cookie による認証
+  - 変更系 API は CSRF token (`x-csrf-token`) が必須
+  - `createdBy` / `actedBy` は current user.id から解決する
 - ID形式: `uuid`
 
 ## 3. エラー形式
@@ -57,7 +60,85 @@ MiniFlow MVPのHTTP API契約を定義する。
 ```
 
 ## 5. エンドポイント
-### 5.1 POST /requests
+### 5.1 POST /auth/register
+ユーザーを登録する。
+
+Request:
+```json
+{
+  "email": "demo@example.com",
+  "password": "password1234"
+}
+```
+
+Response `201`:
+```json
+{
+  "user": {
+    "id": "uuid",
+    "email": "demo@example.com"
+  }
+}
+```
+
+Errors: `400`, `409`, `500`
+
+### 5.2 POST /auth/login
+ログインし、認証 cookie と CSRF cookie を発行する。
+
+Request:
+```json
+{
+  "email": "demo@example.com",
+  "password": "password1234"
+}
+```
+
+Response `200`:
+```json
+{
+  "user": {
+    "id": "uuid",
+    "email": "demo@example.com"
+  }
+}
+```
+
+実装メモ:
+- `Set-Cookie` で auth cookie と csrf cookie を返す
+- token は body では返さない
+
+Errors: `400`, `500`
+
+### 5.3 GET /auth/me
+現在のログインユーザーを返す。
+
+Response `200`:
+```json
+{
+  "id": "uuid",
+  "email": "demo@example.com"
+}
+```
+
+Errors: `401`
+
+### 5.4 GET /auth/csrf
+CSRF token を返す。
+
+Response `200`:
+```json
+{
+  "csrfToken": "uuid-like-random-string"
+}
+```
+
+### 5.5 POST /auth/logout
+認証 cookie と csrf cookie を無効化する。
+
+Response `204`
+
+### 5.6 POST /requests
 Draftを作成する。
 
 Request:
@@ -77,7 +158,7 @@ Response `201`:
   "title": "稟議: ノートPC購入",
   "body": "業務用端末の更新申請",
   "status": "Draft",
-  "createdBy": "00000000-0000-0000-0000-000000000001",
+  "createdBy": "current-user-uuid",
   "createdAt": "2026-03-01T00:00:00.000Z",
   "updatedAt": "2026-03-01T00:00:00.000Z",
   "deletedAt": null
@@ -85,12 +166,13 @@ Response `201`:
 ```
 
 実装メモ:
-- `createdBy` は暫定的に API 側で固定 UUID を設定する
+- auth cookie と `x-csrf-token` が必要
+- `createdBy` は current user.id を使う
 - `teamId`, `title`, `body` が必須
 
-Errors: `400`, `500`
+Errors: `400`, `401`, `403`, `500`
 
-### 5.2 PATCH /requests/:id
+### 5.7 PATCH /requests/:id
 Draftの内容を更新する（MVPではDraftのみ）。
 
 Request:
@@ -109,7 +191,7 @@ Response `200`:
   "title": "稟議: ノートPC購入（更新）",
   "body": "業務用端末の更新申請（理由追記）",
   "status": "Draft",
-  "createdBy": "00000000-0000-0000-0000-000000000001",
+  "createdBy": "current-user-uuid",
   "createdAt": "2026-03-01T00:00:00.000Z",
   "updatedAt": "2026-03-01T00:05:00.000Z",
   "deletedAt": null
@@ -120,9 +202,9 @@ Response `200`:
 - `Draft` 以外は `409`
 - `title` または `body` の少なくとも片方が必要
 
-Errors: `400`, `404`, `409`, `500`
+Errors: `400`, `401`, `403`, `404`, `409`, `500`
 
-### 5.3 POST /requests/:id/submit
+### 5.8 POST /requests/:id/submit
 `Draft -> Pending`
 
 Response `200`:
@@ -133,7 +215,7 @@ Response `200`:
   "title": "稟議: ノートPC購入",
   "body": "業務用端末の更新申請",
   "status": "Pending",
-  "createdBy": "00000000-0000-0000-0000-000000000001",
+  "createdBy": "current-user-uuid",
   "createdAt": "2026-03-01T00:00:00.000Z",
   "updatedAt": "2026-03-01T00:10:00.000Z",
   "deletedAt": null
@@ -144,9 +226,9 @@ Response `200`:
 - `Draft` からのみ `Pending` へ遷移する
 - 現在は単段承認MVPの前段として submit のみ実装
 
-Errors: `400`, `404`, `409`, `500`
+Errors: `400`, `401`, `403`, `404`, `409`, `500`
 
-### 5.4 POST /requests/:id/approve
+### 5.9 POST /requests/:id/approve
 `Pending -> Approved`。成功時にApprovalを1件追加する。
 
 Request:
@@ -164,7 +246,7 @@ Response `200`:
   "title": "稟議: ノートPC購入",
   "body": "業務用端末の更新申請",
   "status": "Approved",
-  "createdBy": "00000000-0000-0000-0000-000000000001",
+  "createdBy": "current-user-uuid",
   "createdAt": "2026-03-01T00:00:00.000Z",
   "updatedAt": "2026-03-01T00:20:00.000Z",
   "deletedAt": null
@@ -175,9 +257,9 @@ Response `200`:
 - `requests.status` 更新と `approvals` 追加は同一 transaction で保存する
 - 今回のレスポンスは `request` のみ返す
 
-Errors: `400`, `404`, `409`, `500`
+Errors: `400`, `401`, `403`, `404`, `409`, `500`
 
-### 5.5 POST /requests/:id/reject
+### 5.10 POST /requests/:id/reject
 `Pending -> Rejected`。成功時にApprovalを1件追加する。
 
 Request:
@@ -195,7 +277,7 @@ Response `200`:
   "title": "稟議: ノートPC購入",
   "body": "業務用端末の更新申請",
   "status": "Rejected",
-  "createdBy": "00000000-0000-0000-0000-000000000001",
+  "createdBy": "current-user-uuid",
   "createdAt": "2026-03-01T00:00:00.000Z",
   "updatedAt": "2026-03-01T00:20:00.000Z",
   "deletedAt": null
@@ -206,9 +288,9 @@ Response `200`:
 - `requests.status` 更新と `approvals` 追加は同一 transaction で保存する
 - 今回のレスポンスは `request` のみ返す
 
-Errors: `400`, `404`, `409`, `500`
+Errors: `400`, `401`, `403`, `404`, `409`, `500`
 
-### 5.6 POST /requests/:id/revise
+### 5.11 POST /requests/:id/revise
 `Rejected -> Draft`（同一Requestを戻す）。MVPではApprovalを追加しない。
 
 Response `200`:
@@ -219,16 +301,16 @@ Response `200`:
   "title": "稟議: ノートPC購入",
   "body": "業務用端末の更新申請",
   "status": "Draft",
-  "createdBy": "00000000-0000-0000-0000-000000000001",
+  "createdBy": "current-user-uuid",
   "createdAt": "2026-03-01T00:00:00.000Z",
   "updatedAt": "2026-03-01T00:40:00.000Z",
   "deletedAt": null
 }
 ```
 
-Errors: `400`, `404`, `409`, `500`
+Errors: `400`, `401`, `403`, `404`, `409`, `500`
 
-### 5.7 POST /requests/:id/delete
+### 5.12 POST /requests/:id/delete
 論理削除。`Draft/Rejected -> Deleted`
 
 Response `200`:
@@ -239,16 +321,16 @@ Response `200`:
   "title": "稟議: ノートPC購入",
   "body": "業務用端末の更新申請",
   "status": "Deleted",
-  "createdBy": "00000000-0000-0000-0000-000000000001",
+  "createdBy": "current-user-uuid",
   "createdAt": "2026-03-01T00:00:00.000Z",
   "updatedAt": "2026-03-01T00:50:00.000Z",
   "deletedAt": "2026-03-01T00:50:00.000Z"
 }
 ```
 
-Errors: `400`, `404`, `409`, `500`
+Errors: `400`, `401`, `403`, `404`, `409`, `500`
 
-### 5.8 GET /requests
+### 5.13 GET /requests
 一覧検索。デフォルトでDeletedは非表示。
 
 Query:
@@ -270,7 +352,7 @@ Response `200`:
       "title": "稟議: ノートPC購入",
       "body": "業務用端末の更新申請",
       "status": "Draft",
-      "createdBy": "00000000-0000-0000-0000-000000000001",
+      "createdBy": "current-user-uuid",
       "createdAt": "2026-03-01T00:00:00.000Z",
       "updatedAt": "2026-03-01T00:00:00.000Z",
       "deletedAt": null
@@ -289,7 +371,7 @@ Response `200`:
 
 Errors: `400`, `500`
 
-### 5.9 GET /requests/:id
+### 5.14 GET /requests/:id
 Request詳細を取得する。
 
 Response `200`:
@@ -301,7 +383,7 @@ Response `200`:
     "title": "稟議: ノートPC購入",
     "body": "業務用端末の更新申請",
     "status": "Approved",
-    "createdBy": "00000000-0000-0000-0000-000000000001",
+    "createdBy": "current-user-uuid",
     "createdAt": "2026-03-01T00:00:00.000Z",
     "updatedAt": "2026-03-01T00:20:00.000Z",
     "deletedAt": null
@@ -310,7 +392,7 @@ Response `200`:
     {
       "id": "uuid",
       "requestId": "uuid",
-      "actedBy": "00000000-0000-0000-0000-000000000001",
+      "actedBy": "current-user-uuid",
       "actionType": "Approved",
       "reason": "予算内のため承認",
       "createdAt": "2026-03-01T00:20:00.000Z"

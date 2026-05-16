@@ -8,15 +8,121 @@ servers:
   - url: /api/v1
 
 tags:
+  - name: Auth
+    description: Cookie-based authentication endpoints
   - name: Requests
     description: Request workflow endpoints
 
 paths:
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Register user
+      operationId: registerUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthUserResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Login user and set auth cookies
+      operationId: loginUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: OK
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+              description: Auth and CSRF cookies are set by the server.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthUserResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Logout user and clear cookies
+      operationId: logoutUser
+      security:
+        - cookieAuth: []
+        - csrfHeader: []
+      responses:
+        "204":
+          description: No Content
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Get current user
+      operationId: getCurrentUser
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthUser"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /auth/csrf:
+    get:
+      tags: [Auth]
+      summary: Issue CSRF token
+      operationId: getCsrfToken
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CsrfToken"
+
   /requests:
     post:
       tags: [Requests]
       summary: Create draft request
       operationId: createRequest
+      security:
+        - cookieAuth: []
+        - csrfHeader: []
       requestBody:
         required: true
         content:
@@ -32,6 +138,10 @@ paths:
                 $ref: "#/components/schemas/Request"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "500":
           $ref: "#/components/responses/InternalServerError"
     get:
@@ -99,6 +209,9 @@ paths:
       tags: [Requests]
       summary: Update request (Draft only)
       operationId: updateRequest
+      security:
+        - cookieAuth: []
+        - csrfHeader: []
       parameters:
         - $ref: "#/components/parameters/RequestId"
       requestBody:
@@ -116,6 +229,10 @@ paths:
                 $ref: "#/components/schemas/Request"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
@@ -147,6 +264,9 @@ paths:
       tags: [Requests]
       summary: Submit request (Draft -> Pending)
       operationId: submitRequest
+      security:
+        - cookieAuth: []
+        - csrfHeader: []
       parameters:
         - $ref: "#/components/parameters/RequestId"
       responses:
@@ -158,6 +278,10 @@ paths:
                 $ref: "#/components/schemas/Request"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
@@ -170,6 +294,9 @@ paths:
       tags: [Requests]
       summary: Approve request (Pending -> Approved)
       operationId: approveRequest
+      security:
+        - cookieAuth: []
+        - csrfHeader: []
       parameters:
         - $ref: "#/components/parameters/RequestId"
       requestBody:
@@ -187,6 +314,10 @@ paths:
                 $ref: "#/components/schemas/Request"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
@@ -199,6 +330,9 @@ paths:
       tags: [Requests]
       summary: Reject request (Pending -> Rejected)
       operationId: rejectRequest
+      security:
+        - cookieAuth: []
+        - csrfHeader: []
       parameters:
         - $ref: "#/components/parameters/RequestId"
       requestBody:
@@ -216,6 +350,10 @@ paths:
                 $ref: "#/components/schemas/Request"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
@@ -228,6 +366,9 @@ paths:
       tags: [Requests]
       summary: Revise request (Rejected -> Draft)
       operationId: reviseRequest
+      security:
+        - cookieAuth: []
+        - csrfHeader: []
       parameters:
         - $ref: "#/components/parameters/RequestId"
       responses:
@@ -239,6 +380,10 @@ paths:
                 $ref: "#/components/schemas/Request"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
@@ -251,6 +396,9 @@ paths:
       tags: [Requests]
       summary: Logical delete request (Draft/Rejected -> Deleted)
       operationId: deleteRequest
+      security:
+        - cookieAuth: []
+        - csrfHeader: []
       parameters:
         - $ref: "#/components/parameters/RequestId"
       responses:
@@ -262,6 +410,10 @@ paths:
                 $ref: "#/components/schemas/Request"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
@@ -317,6 +469,19 @@ components:
                   code: FORBIDDEN
                   message: You are not allowed to perform this action.
                   status: 403
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          examples:
+            unauthorized:
+              value:
+                error:
+                  code: UNAUTHORIZED
+                  message: authentication required
+                  status: 401
     NotFound:
       description: Not Found
       content:
@@ -356,6 +521,16 @@ components:
                   code: INTERNAL_SERVER_ERROR
                   message: Unexpected server error.
                   status: 500
+
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: miniflow_auth
+    csrfHeader:
+      type: apiKey
+      in: header
+      name: x-csrf-token
 
   schemas:
     Uuid:
@@ -444,6 +619,52 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Approval"
+
+    AuthUser:
+      type: object
+      required: [id, email]
+      properties:
+        id:
+          $ref: "#/components/schemas/Uuid"
+        email:
+          type: string
+          format: email
+
+    AuthUserResponse:
+      type: object
+      required: [user]
+      properties:
+        user:
+          $ref: "#/components/schemas/AuthUser"
+
+    LoginInput:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+
+    RegisterInput:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+
+    CsrfToken:
+      type: object
+      required: [csrfToken]
+      properties:
+        csrfToken:
+          type: string
 
     CreateRequestBody:
       type: object

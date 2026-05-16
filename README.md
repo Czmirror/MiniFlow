@@ -23,7 +23,11 @@ The backend is structured with domain / application / infrastructure layers so t
 
 ## Current Scope
 
-The current milestone focuses on a reproducible local development base where `web + api + db` start, talk to each other, and save or read `Draft Request` records.
+The current milestone now covers:
+- local startup for `web + api + db`
+- cookie-based authentication with CSRF protection
+- request draft creation, update, submit, approve, reject, revise, delete
+- request list/detail retrieval, including approval history on detail
 
 ## Why this structure
 - `apps/web`: Next.js frontend
@@ -61,6 +65,7 @@ cp apps/web/.env.example apps/web/.env.local
 ```
 
 The defaults already point to the local PostgreSQL container and local API.
+For local auth development, set a non-empty `JWT_SECRET` in `apps/api/.env`.
 
 ## Install dependencies
 ```bash
@@ -79,10 +84,10 @@ The container starts PostgreSQL on `localhost:5432` with:
 - database: `miniflow`
 
 ## Run Prisma migration
-Create the `requests` table before starting the API.
+Create or update the local schema before starting the API.
 
 ```bash
-pnpm db:migrate -- --name init_requests
+corepack pnpm --filter @miniflow/api exec prisma migrate dev
 ```
 
 ## Start the API
@@ -104,11 +109,17 @@ Manual check:
 curl http://localhost:3001/health
 ```
 
-Request creation check:
+Register and login check:
 ```bash
-curl -X POST http://localhost:3001/requests \
+curl -X POST http://localhost:3001/auth/register \
   -H 'content-type: application/json' \
-  -d '{"teamId":"team-1","title":"First draft","body":"Created from curl"}'
+  -d '{"email":"demo@example.com","password":"password1234"}'
+```
+
+```bash
+curl -i -X POST http://localhost:3001/auth/login \
+  -H 'content-type: application/json' \
+  -d '{"email":"demo@example.com","password":"password1234"}'
 ```
 
 ## Start the web app
@@ -118,19 +129,22 @@ In another terminal:
 pnpm dev:web
 ```
 
-Open [http://localhost:3100](http://localhost:3100), press `API health check 実行`, then submit the `POST /requests` form.
-The page should display both the `/health` response and the created draft request response from the API.
+Open [http://localhost:3100](http://localhost:3100), then:
+1. run the health check
+2. login or register from the auth panel
+3. create a draft request
+4. inspect and transition requests from the workflow panel
 
 ## Notes
-- This week still does not implement approval workflow logic in the API.
-- The API now persists only `Draft` requests. Approval, reject, revise, and delete APIs are not wired yet.
-- `createdBy` is temporarily injected in the API as a fixed UUID until authentication exists.
+- Auth now uses `httpOnly` cookie + CSRF token instead of `localStorage`.
+- This is still a minimal auth slice. It does not yet implement roles, team membership, or `ApproverPolicy`.
 - Existing root-level prototype code is kept for reference. The runtime path for new API work now lives under `apps/api/src/domain`.
+- The workflow panel is intentionally a verification UI. It is not yet a polished product screen.
 
 ## Next steps
-- Expand the new `apps/api/src/domain/request` model beyond draft creation
-- Add request read endpoints
-- Add frontend request list and detail screens
+- Introduce `ApproverPolicy` after actor resolution is stable
+- Replace the verification-oriented workflow UI with dedicated request screens
+- Expand auth from simple current-user resolution into real authorization rules
 
 ## Related documents
 - [PRD](/Users/admin/WebPortfolio/MiniFlow/docs/PRD.md)

@@ -37,6 +37,9 @@ export function CreateRequestPanel() {
   return (
     <section style={{ marginTop: "2rem" }}>
       <h2 style={{ marginBottom: "0.75rem", fontSize: "1.25rem" }}>Create draft request</h2>
+      <p style={{ marginTop: 0, marginBottom: "0.75rem", color: "#52606d" }}>
+        Login is required because the API now derives <code>createdBy</code> from the authenticated user.
+      </p>
       <form onSubmit={handleSubmit} style={{ display: "grid", gap: "0.75rem" }}>
         <label style={{ display: "grid", gap: "0.35rem" }}>
           <span>Team ID</span>

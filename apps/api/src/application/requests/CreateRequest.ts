@@ -3,17 +3,16 @@ import type { RequestRepository } from "../ports/RequestRepository.js";
 import { InputValidationError } from "../errors/InputValidationError.js";
 import { Request } from "../../domain/request/Request.js";
 
-const DEFAULT_CREATED_BY = "00000000-0000-0000-0000-000000000001";
-
 export type CreateRequestInput = {
+  actorId: string;
   teamId: string;
   title: string;
   body: string;
 };
 
 /**
- * createdBy is intentionally injected here until authentication exists.
- * Replace this with authenticated actor resolution instead of widening the API body.
+ * createdBy stays outside the request body. When auth changes, update the actor
+ * resolution at the route or middleware boundary instead of widening this API contract.
  */
 export async function createRequest(
   repository: RequestRepository,
@@ -22,11 +21,12 @@ export async function createRequest(
   validateRequiredString(input.teamId, "teamId");
   validateRequiredString(input.title, "title");
   validateRequiredString(input.body, "body");
+  validateRequiredString(input.actorId, "actorId");
 
   const request = Request.createDraft({
     id: randomUUID(),
     teamId: input.teamId.trim(),
-    createdBy: DEFAULT_CREATED_BY,
+    createdBy: input.actorId.trim(),
     title: input.title.trim(),
     body: input.body.trim()
   });

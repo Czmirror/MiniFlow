@@ -38,6 +38,24 @@ export type RequestDetailDto = {
   approvals: ApprovalDto[];
 };
 
+export type RegisterInput = {
+  email: string;
+  password: string;
+};
+
+export type LoginInput = RegisterInput;
+
+export type AuthUserDto = {
+  id: string;
+  email: string;
+};
+
+export type AuthMeDto = AuthUserDto;
+
+export type CsrfTokenDto = {
+  csrfToken: string;
+};
+
 export type ListRequestsInput = {
   teamId: string;
   status?: RequestStatus;

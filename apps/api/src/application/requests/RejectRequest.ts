@@ -1,13 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { InputValidationError } from "../errors/InputValidationError.js";
 import type { RequestRepository } from "../ports/RequestRepository.js";
-import { DEFAULT_ACTOR_ID } from "./actor.js";
 
 export async function rejectRequest(
   repository: RequestRepository,
-  input: { id: string; reason?: string }
+  input: { id: string; actorId: string; reason?: string }
 ) {
   validateRequiredString(input.id, "request id");
+  validateRequiredString(input.actorId, "actorId");
 
   const request = await repository.findById(input.id.trim());
   if (!request) {
@@ -15,7 +15,7 @@ export async function rejectRequest(
   }
 
   const result = request.reject({
-    actorId: DEFAULT_ACTOR_ID,
+    actorId: input.actorId.trim(),
     approvalId: randomUUID(),
     reason: input.reason
   });

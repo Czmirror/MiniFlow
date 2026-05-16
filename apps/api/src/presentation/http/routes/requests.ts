@@ -22,7 +22,7 @@ import { toRequestDetailDto, toRequestDto } from "../mappers/toRequestDto.js";
 export function registerRequestRoutes(server: FastifyInstance, prisma: PrismaClient) {
   const repository = new PrismaRequestRepository(prisma);
 
-  server.post("/requests", async (request, reply) => {
+  server.post("/requests", { preHandler: [server.requireAuth, server.requireCsrf] }, async (request, reply) => {
     const body = (request.body ?? {}) as Partial<{
       teamId: string;
       title: string;
@@ -30,7 +30,12 @@ export function registerRequestRoutes(server: FastifyInstance, prisma: PrismaCli
     }>;
 
     try {
+      if (!request.currentUser) {
+        return reply.code(401).send(notAuthorizedError());
+      }
+
       const createdRequest = await createRequest(repository, {
+        actorId: request.currentUser.id,
         teamId: body.teamId ?? "",
         title: body.title ?? "",
         body: body.body ?? ""
@@ -97,7 +102,7 @@ export function registerRequestRoutes(server: FastifyInstance, prisma: PrismaCli
     }
   });
 
-  server.patch("/requests/:id", async (request, reply) => {
+  server.patch("/requests/:id", { preHandler: [server.requireAuth, server.requireCsrf] }, async (request, reply) => {
     const params = request.params as { id?: string };
     const body = (request.body ?? {}) as Partial<{
       title: string;
@@ -127,7 +132,7 @@ export function registerRequestRoutes(server: FastifyInstance, prisma: PrismaCli
     }
   });
 
-  server.post("/requests/:id/submit", async (request, reply) => {
+  server.post("/requests/:id/submit", { preHandler: [server.requireAuth, server.requireCsrf] }, async (request, reply) => {
     const params = request.params as { id?: string };
 
     try {
@@ -149,13 +154,18 @@ export function registerRequestRoutes(server: FastifyInstance, prisma: PrismaCli
     }
   });
 
-  server.post("/requests/:id/approve", async (request, reply) => {
+  server.post("/requests/:id/approve", { preHandler: [server.requireAuth, server.requireCsrf] }, async (request, reply) => {
     const params = request.params as { id?: string };
     const body = (request.body ?? {}) as Partial<{ reason: string }>;
 
     try {
+      if (!request.currentUser) {
+        return reply.code(401).send(notAuthorizedError());
+      }
+
       const approvedRequest = await approveRequest(repository, {
         id: params.id ?? "",
+        actorId: request.currentUser.id,
         reason: body.reason
       });
 
@@ -169,13 +179,18 @@ export function registerRequestRoutes(server: FastifyInstance, prisma: PrismaCli
     }
   });
 
-  server.post("/requests/:id/reject", async (request, reply) => {
+  server.post("/requests/:id/reject", { preHandler: [server.requireAuth, server.requireCsrf] }, async (request, reply) => {
     const params = request.params as { id?: string };
     const body = (request.body ?? {}) as Partial<{ reason: string }>;
 
     try {
+      if (!request.currentUser) {
+        return reply.code(401).send(notAuthorizedError());
+      }
+
       const rejectedRequest = await rejectRequest(repository, {
         id: params.id ?? "",
+        actorId: request.currentUser.id,
         reason: body.reason
       });
 
@@ -189,7 +204,7 @@ export function registerRequestRoutes(server: FastifyInstance, prisma: PrismaCli
     }
   });
 
-  server.post("/requests/:id/revise", async (request, reply) => {
+  server.post("/requests/:id/revise", { preHandler: [server.requireAuth, server.requireCsrf] }, async (request, reply) => {
     const params = request.params as { id?: string };
 
     try {
@@ -205,7 +220,7 @@ export function registerRequestRoutes(server: FastifyInstance, prisma: PrismaCli
     }
   });
 
-  server.post("/requests/:id/delete", async (request, reply) => {
+  server.post("/requests/:id/delete", { preHandler: [server.requireAuth, server.requireCsrf] }, async (request, reply) => {
     const params = request.params as { id?: string };
 
     try {
@@ -266,6 +281,16 @@ function notFoundError() {
       code: "NOT_FOUND",
       message: "request not found",
       status: 404
+    }
+  };
+}
+
+function notAuthorizedError() {
+  return {
+    error: {
+      code: "UNAUTHORIZED",
+      message: "authentication required",
+      status: 401
     }
   };
 }
