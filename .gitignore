@@ -25,3 +25,6 @@ coverage/
 dist/
 build/
 .next/
+
+# AI
+.ai-context
