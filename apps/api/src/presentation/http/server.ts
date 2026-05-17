@@ -18,7 +18,8 @@ export async function buildServer() {
 
   await server.register(cors, {
     origin: env.corsOrigin,
-    credentials: true
+    credentials: true,
+    methods: ["GET", "HEAD", "POST", "PATCH"]
   });
   await server.register(cookie);
   await server.register(jwt, {
