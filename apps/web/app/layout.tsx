@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "MiniFlow",
-  description: "MiniFlow week 1 health check"
+  description: "MiniFlow approval workflow"
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
