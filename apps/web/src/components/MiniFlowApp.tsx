@@ -2,20 +2,48 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
-import type { ApprovalDto, AuthUserDto, CreateRequestInput, RequestDto } from "@miniflow/shared";
-import { fetchCurrentUser, login, logout } from "../lib/authApi";
+import type {
+  ApprovalDto,
+  AuthUserDto,
+  CreateRequestInput,
+  RequestDto,
+  UserManagementDto
+} from "@miniflow/shared";
+import {
+  changePassword,
+  createUser,
+  fetchCurrentUser,
+  listUsers,
+  login,
+  logout,
+  updateAccount,
+  updateUser
+} from "../lib/authApi";
 import { createRequest, getRequest, listRequests, transitionRequest } from "../lib/requestApi";
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
 const defaultTeamId = "team-1";
 
-type View = "dashboard" | "requests" | "mine" | "pending" | "create" | "detail";
+type View = "dashboard" | "requests" | "mine" | "pending" | "create" | "detail" | "account" | "users";
 type Locale = "ja" | "en";
 
 const initialCreateForm: CreateRequestInput = {
   teamId: defaultTeamId,
   title: "",
   body: ""
+};
+
+const initialUserForm = {
+  email: "",
+  password: "",
+  displayName: "",
+  language: "ja" as Locale,
+  teamId: defaultTeamId
+};
+
+const initialPasswordForm = {
+  currentPassword: "",
+  newPassword: ""
 };
 
 const locale: Locale = "ja";
@@ -63,6 +91,28 @@ const messages = {
     noSelectedRequest: "申請が選択されていません。",
     noApprovalHistory: "承認履歴はありません。",
     noReason: "理由なし",
+    accountSettings: "アカウント設定",
+    userManagement: "ユーザー管理",
+    displayName: "表示名",
+    language: "言語",
+    japanese: "日本語",
+    english: "English",
+    save: "保存",
+    saving: "保存中",
+    passwordChange: "パスワード変更",
+    currentPassword: "現在のパスワード",
+    newPassword: "新しいパスワード",
+    changePassword: "パスワードを変更",
+    createUser: "ユーザー作成",
+    editUser: "ユーザー編集",
+    disableUser: "無効化",
+    enableUser: "有効化",
+    active: "有効",
+    inactive: "無効",
+    userCreated: "ユーザーを作成しました。",
+    userUpdated: "ユーザーを更新しました。",
+    accountUpdated: "アカウント設定を保存しました。",
+    passwordChanged: "パスワードを変更しました。",
     loginSuccess: "ログインしました。",
     refreshSuccess: "一覧を更新しました。",
     createSuccess: "申請を作成しました。",
@@ -122,6 +172,28 @@ const messages = {
     noSelectedRequest: "No request is selected.",
     noApprovalHistory: "No approval history.",
     noReason: "No reason",
+    accountSettings: "Account Settings",
+    userManagement: "User Management",
+    displayName: "Display Name",
+    language: "Language",
+    japanese: "Japanese",
+    english: "English",
+    save: "Save",
+    saving: "Saving",
+    passwordChange: "Password Change",
+    currentPassword: "Current Password",
+    newPassword: "New Password",
+    changePassword: "Change Password",
+    createUser: "Create User",
+    editUser: "Edit User",
+    disableUser: "Disable",
+    enableUser: "Enable",
+    active: "Active",
+    inactive: "Inactive",
+    userCreated: "User created.",
+    userUpdated: "User updated.",
+    accountUpdated: "Account settings saved.",
+    passwordChanged: "Password changed.",
     loginSuccess: "Logged in.",
     refreshSuccess: "Request list refreshed.",
     createSuccess: "Request created.",
@@ -140,29 +212,38 @@ const messages = {
   }
 } as const;
 
-const labels = messages[locale];
-const navItems: Array<{ view: View; label: string }> = [
-  { view: "dashboard", label: labels.dashboard },
-  { view: "requests", label: labels.requestList },
-  { view: "mine", label: labels.myRequests },
-  { view: "pending", label: labels.pendingApprovals },
-  { view: "create", label: labels.requestCreate }
-];
+let labels: (typeof messages)[Locale] = messages[locale];
 
 export function MiniFlowApp() {
   const [currentUser, setCurrentUser] = useState<AuthUserDto | null>(null);
+  const [locale, setLocale] = useState<Locale>("ja");
   const [email, setEmail] = useState("demo@example.com");
   const [password, setPassword] = useState("password1234");
   const [teamId, setTeamId] = useState(defaultTeamId);
   const [requests, setRequests] = useState<RequestDto[]>([]);
+  const [users, setUsers] = useState<UserManagementDto[]>([]);
   const [selectedRequest, setSelectedRequest] = useState<RequestDto | null>(null);
   const [approvals, setApprovals] = useState<ApprovalDto[]>([]);
   const [view, setView] = useState<View>("dashboard");
   const [createForm, setCreateForm] = useState<CreateRequestInput>(initialCreateForm);
+  const [accountForm, setAccountForm] = useState({ displayName: "", language: "ja" as Locale });
+  const [passwordForm, setPasswordForm] = useState(initialPasswordForm);
+  const [userForm, setUserForm] = useState(initialUserForm);
   const [decisionReason, setDecisionReason] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  labels = messages[locale];
+  const navItems: Array<{ view: View; label: string }> = [
+    { view: "dashboard", label: labels.dashboard },
+    { view: "requests", label: labels.requestList },
+    { view: "mine", label: labels.myRequests },
+    { view: "pending", label: labels.pendingApprovals },
+    { view: "create", label: labels.requestCreate },
+    { view: "account", label: labels.accountSettings },
+    { view: "users", label: labels.userManagement }
+  ];
 
   useEffect(() => {
     void initialize();
@@ -204,7 +285,9 @@ export function MiniFlowApp() {
       const user = await fetchCurrentUser(apiBaseUrl);
       setCurrentUser(user);
       if (user) {
+        applyUserSettings(user);
         await refreshRequests(defaultTeamId);
+        await refreshUsers();
       }
     } catch (caughtError) {
       setError(toErrorMessage(caughtError));
@@ -222,7 +305,9 @@ export function MiniFlowApp() {
     try {
       const user = await login(apiBaseUrl, { email, password });
       setCurrentUser(user);
+      applyUserSettings(user);
       await refreshRequests(teamId);
+      await refreshUsers();
       setView("dashboard");
       setMessage(labels.loginSuccess);
     } catch (caughtError) {
@@ -241,6 +326,7 @@ export function MiniFlowApp() {
       await logout(apiBaseUrl);
       setCurrentUser(null);
       setRequests([]);
+      setUsers([]);
       setSelectedRequest(null);
       setApprovals([]);
       setView("dashboard");
@@ -256,6 +342,11 @@ export function MiniFlowApp() {
     setRequests(response.items);
   }
 
+  async function refreshUsers() {
+    const response = await listUsers(apiBaseUrl);
+    setUsers(response.items);
+  }
+
   async function handleRefresh() {
     setLoading(true);
     setError(null);
@@ -263,6 +354,7 @@ export function MiniFlowApp() {
 
     try {
       await refreshRequests(teamId);
+      await refreshUsers();
       setMessage(labels.refreshSuccess);
     } catch (caughtError) {
       setError(toErrorMessage(caughtError));
@@ -341,6 +433,104 @@ export function MiniFlowApp() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleAccountSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setLoading(true);
+    setError(null);
+    setMessage(null);
+
+    try {
+      const user = await updateAccount(apiBaseUrl, {
+        displayName: accountForm.displayName,
+        language: accountForm.language
+      });
+      setCurrentUser(user);
+      applyUserSettings(user);
+      setMessage(messages[user.language].accountUpdated);
+    } catch (caughtError) {
+      setError(toErrorMessage(caughtError));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handlePasswordSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setLoading(true);
+    setError(null);
+    setMessage(null);
+
+    try {
+      const user = await changePassword(apiBaseUrl, passwordForm);
+      setCurrentUser(user);
+      setPasswordForm(initialPasswordForm);
+      setMessage(labels.passwordChanged);
+    } catch (caughtError) {
+      setError(toErrorMessage(caughtError));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleUserCreate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setLoading(true);
+    setError(null);
+    setMessage(null);
+
+    try {
+      await createUser(apiBaseUrl, {
+        email: userForm.email,
+        password: userForm.password,
+        displayName: userForm.displayName,
+        language: userForm.language,
+        teamId: userForm.teamId
+      });
+      setUserForm({ ...initialUserForm, teamId });
+      await refreshUsers();
+      setMessage(labels.userCreated);
+    } catch (caughtError) {
+      setError(toErrorMessage(caughtError));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleUserUpdate(
+    user: UserManagementDto,
+    input: { displayName?: string | null; language?: Locale; teamId?: string; isActive?: boolean }
+  ) {
+    setLoading(true);
+    setError(null);
+    setMessage(null);
+
+    try {
+      await updateUser(apiBaseUrl, user.id, {
+        displayName: user.displayName,
+        language: user.language,
+        teamId: user.teamId,
+        ...input
+      });
+      await refreshUsers();
+      setMessage(labels.userUpdated);
+    } catch (caughtError) {
+      setError(toErrorMessage(caughtError));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function applyUserSettings(user: AuthUserDto) {
+    setLocale(user.language);
+    setAccountForm({
+      displayName: user.displayName ?? "",
+      language: user.language
+    });
+    setTeamId(user.teamId);
+    setCreateForm((current) => ({ ...current, teamId: user.teamId }));
+    setUserForm((current) => ({ ...current, teamId: user.teamId }));
   }
 
   if (!currentUser) {
@@ -444,6 +634,30 @@ export function MiniFlowApp() {
             loading={loading}
             onChange={setCreateForm}
             onSubmit={handleCreate}
+          />
+        ) : null}
+
+        {view === "account" ? (
+          <AccountSettingsView
+            accountForm={accountForm}
+            loading={loading}
+            passwordForm={passwordForm}
+            onAccountChange={setAccountForm}
+            onAccountSubmit={handleAccountSubmit}
+            onPasswordChange={setPasswordForm}
+            onPasswordSubmit={handlePasswordSubmit}
+          />
+        ) : null}
+
+        {view === "users" ? (
+          <UserManagementView
+            currentUser={currentUser}
+            form={userForm}
+            loading={loading}
+            users={users}
+            onCreate={handleUserCreate}
+            onFormChange={setUserForm}
+            onUpdate={handleUserUpdate}
           />
         ) : null}
 
@@ -613,6 +827,256 @@ function CreateRequestView({
           {loading ? labels.creating : labels.create}
         </button>
       </form>
+    </div>
+  );
+}
+
+function AccountSettingsView({
+  accountForm,
+  loading,
+  passwordForm,
+  onAccountChange,
+  onAccountSubmit,
+  onPasswordChange,
+  onPasswordSubmit
+}: {
+  accountForm: { displayName: string; language: Locale };
+  loading: boolean;
+  passwordForm: { currentPassword: string; newPassword: string };
+  onAccountChange: (form: { displayName: string; language: Locale }) => void;
+  onAccountSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onPasswordChange: (form: { currentPassword: string; newPassword: string }) => void;
+  onPasswordSubmit: (event: FormEvent<HTMLFormElement>) => void;
+}) {
+  return (
+    <div className="screen-grid">
+      <section className="screen-header">
+        <p className="eyebrow">{labels.accountSettings}</p>
+        <h2>{labels.accountSettings}</h2>
+      </section>
+
+      <div className="settings-grid">
+        <form className="form-panel" onSubmit={onAccountSubmit}>
+          <label className="field">
+            <span>{labels.displayName}</span>
+            <input
+              value={accountForm.displayName}
+              onChange={(event) => onAccountChange({ ...accountForm, displayName: event.target.value })}
+            />
+          </label>
+          <label className="field">
+            <span>{labels.language}</span>
+            <select
+              value={accountForm.language}
+              onChange={(event) => onAccountChange({ ...accountForm, language: event.target.value as Locale })}
+            >
+              <option value="ja">{labels.japanese}</option>
+              <option value="en">{labels.english}</option>
+            </select>
+          </label>
+          <button className="button primary" type="submit" disabled={loading}>
+            {loading ? labels.saving : labels.save}
+          </button>
+        </form>
+
+        <form className="form-panel" onSubmit={onPasswordSubmit}>
+          <h3>{labels.passwordChange}</h3>
+          <label className="field">
+            <span>{labels.currentPassword}</span>
+            <input
+              type="password"
+              value={passwordForm.currentPassword}
+              onChange={(event) => onPasswordChange({ ...passwordForm, currentPassword: event.target.value })}
+              autoComplete="current-password"
+            />
+          </label>
+          <label className="field">
+            <span>{labels.newPassword}</span>
+            <input
+              type="password"
+              value={passwordForm.newPassword}
+              onChange={(event) => onPasswordChange({ ...passwordForm, newPassword: event.target.value })}
+              autoComplete="new-password"
+            />
+          </label>
+          <button className="button secondary" type="submit" disabled={loading}>
+            {labels.changePassword}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function UserManagementView({
+  currentUser,
+  form,
+  loading,
+  users,
+  onCreate,
+  onFormChange,
+  onUpdate
+}: {
+  currentUser: AuthUserDto;
+  form: typeof initialUserForm;
+  loading: boolean;
+  users: UserManagementDto[];
+  onCreate: (event: FormEvent<HTMLFormElement>) => void;
+  onFormChange: (form: typeof initialUserForm) => void;
+  onUpdate: (
+    user: UserManagementDto,
+    input: { displayName?: string | null; language?: Locale; teamId?: string; isActive?: boolean }
+  ) => void;
+}) {
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({
+    displayName: "",
+    language: "ja" as Locale,
+    teamId: defaultTeamId
+  });
+
+  function startEdit(user: UserManagementDto) {
+    setEditingUserId(user.id);
+    setEditForm({
+      displayName: user.displayName ?? "",
+      language: user.language,
+      teamId: user.teamId
+    });
+  }
+
+  return (
+    <div className="screen-grid">
+      <section className="screen-header">
+        <p className="eyebrow">{labels.userManagement}</p>
+        <h2>{labels.userManagement}</h2>
+      </section>
+
+      <form className="form-panel" onSubmit={onCreate}>
+        <h3>{labels.createUser}</h3>
+        <div className="form-grid">
+          <label className="field">
+            <span>{labels.email}</span>
+            <input value={form.email} onChange={(event) => onFormChange({ ...form, email: event.target.value })} />
+          </label>
+          <label className="field">
+            <span>{labels.password}</span>
+            <input
+              type="password"
+              value={form.password}
+              onChange={(event) => onFormChange({ ...form, password: event.target.value })}
+            />
+          </label>
+          <label className="field">
+            <span>{labels.displayName}</span>
+            <input
+              value={form.displayName}
+              onChange={(event) => onFormChange({ ...form, displayName: event.target.value })}
+            />
+          </label>
+          <label className="field">
+            <span>{labels.team}</span>
+            <input value={form.teamId} onChange={(event) => onFormChange({ ...form, teamId: event.target.value })} />
+          </label>
+          <label className="field">
+            <span>{labels.language}</span>
+            <select
+              value={form.language}
+              onChange={(event) => onFormChange({ ...form, language: event.target.value as Locale })}
+            >
+              <option value="ja">{labels.japanese}</option>
+              <option value="en">{labels.english}</option>
+            </select>
+          </label>
+        </div>
+        <button className="button primary" type="submit" disabled={loading}>
+          {labels.createUser}
+        </button>
+      </form>
+
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>{labels.email}</th>
+              <th>{labels.displayName}</th>
+              <th>{labels.team}</th>
+              <th>{labels.language}</th>
+              <th>{labels.status}</th>
+              <th aria-label={labels.editUser} />
+            </tr>
+          </thead>
+          <tbody>
+            {users.map((user) => (
+              <tr key={user.id}>
+                <td>
+                  <strong>{user.email}</strong>
+                  <small>{user.id}</small>
+                </td>
+                <td>
+                  {editingUserId === user.id ? (
+                    <input
+                      value={editForm.displayName}
+                      onChange={(event) => setEditForm({ ...editForm, displayName: event.target.value })}
+                    />
+                  ) : (
+                    user.displayName || "-"
+                  )}
+                </td>
+                <td>
+                  {editingUserId === user.id ? (
+                    <input value={editForm.teamId} onChange={(event) => setEditForm({ ...editForm, teamId: event.target.value })} />
+                  ) : (
+                    user.teamId
+                  )}
+                </td>
+                <td>
+                  {editingUserId === user.id ? (
+                    <select
+                      value={editForm.language}
+                      onChange={(event) => setEditForm({ ...editForm, language: event.target.value as Locale })}
+                    >
+                      <option value="ja">{labels.japanese}</option>
+                      <option value="en">{labels.english}</option>
+                    </select>
+                  ) : user.language === "ja" ? (
+                    labels.japanese
+                  ) : (
+                    labels.english
+                  )}
+                </td>
+                <td>{user.isActive ? labels.active : labels.inactive}</td>
+                <td>
+                  {editingUserId === user.id ? (
+                    <button
+                      className="button table-action"
+                      type="button"
+                      disabled={loading}
+                      onClick={() => {
+                        onUpdate(user, editForm);
+                        setEditingUserId(null);
+                      }}
+                    >
+                      {labels.save}
+                    </button>
+                  ) : (
+                    <button className="button table-action" type="button" disabled={loading} onClick={() => startEdit(user)}>
+                      {labels.editUser}
+                    </button>
+                  )}
+                  <button
+                    className="button table-action secondary-action"
+                    type="button"
+                    disabled={loading || user.id === currentUser.id}
+                    onClick={() => void onUpdate(user, { isActive: !user.isActive })}
+                  >
+                    {user.isActive ? labels.disableUser : labels.enableUser}
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

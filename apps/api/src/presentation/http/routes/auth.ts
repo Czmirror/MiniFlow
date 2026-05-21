@@ -5,6 +5,10 @@ import { InputValidationError } from "../../../application/errors/InputValidatio
 import { StateConflictError } from "../../../application/errors/StateConflictError.js";
 import { loginUser } from "../../../application/auth/LoginUser.js";
 import { registerUser } from "../../../application/auth/RegisterUser.js";
+import { changePassword } from "../../../application/auth/ChangePassword.js";
+import { listUsers } from "../../../application/auth/ListUsers.js";
+import { updateAccount } from "../../../application/auth/UpdateAccount.js";
+import { updateUser } from "../../../application/auth/UpdateUser.js";
 import { createCsrfToken } from "../../../infrastructure/auth/csrf.js";
 import { AUTH_COOKIE_NAME, CSRF_COOKIE_NAME } from "../../../infrastructure/auth/jwt.js";
 import { PrismaUserRepository } from "../../../infrastructure/repositories/PrismaUserRepository.js";
@@ -16,19 +20,25 @@ export function registerAuthRoutes(server: FastifyInstance, prisma: PrismaClient
   const repository = new PrismaUserRepository(prisma);
 
   server.post("/auth/register", async (request, reply) => {
-    const body = (request.body ?? {}) as Partial<{ email: string; password: string }>;
+    const body = (request.body ?? {}) as Partial<{
+      email: string;
+      password: string;
+      displayName: string | null;
+      language: "ja" | "en";
+      teamId: string;
+    }>;
 
     try {
       const user = await registerUser(repository, {
         email: body.email ?? "",
-        password: body.password ?? ""
+        password: body.password ?? "",
+        displayName: body.displayName,
+        language: body.language,
+        teamId: body.teamId
       });
 
       return reply.code(201).send({
-        user: {
-          id: user.id,
-          email: user.email
-        }
+        user: toAuthUserDto(user)
       });
     } catch (error) {
       return handleAuthError(reply, error, "failed to register");
@@ -50,10 +60,7 @@ export function registerAuthRoutes(server: FastifyInstance, prisma: PrismaClient
       setAuthCookies(reply, jwt, csrfToken);
 
       return reply.send({
-        user: {
-          id: user.id,
-          email: user.email
-        }
+        user: toAuthUserDto(user)
       });
     } catch (error) {
       return handleAuthError(reply, error, "failed to login");
@@ -77,6 +84,117 @@ export function registerAuthRoutes(server: FastifyInstance, prisma: PrismaClient
     }
 
     return reply.send(request.currentUser);
+  });
+
+  server.patch("/account", { preHandler: [server.requireAuth, server.requireCsrf] }, async (request, reply) => {
+    const body = (request.body ?? {}) as Partial<{ displayName: string | null; language: "ja" | "en" }>;
+
+    try {
+      if (!request.currentUser) {
+        return reply.code(401).send(unauthorized());
+      }
+
+      const user = await updateAccount(repository, {
+        userId: request.currentUser.id,
+        displayName: body.displayName,
+        language: body.language
+      });
+
+      if (!user) {
+        return reply.code(404).send(notFound("user not found"));
+      }
+
+      return reply.send(toAuthUserDto(user));
+    } catch (error) {
+      return handleAuthError(reply, error, "failed to update account");
+    }
+  });
+
+  server.post("/account/password", { preHandler: [server.requireAuth, server.requireCsrf] }, async (request, reply) => {
+    const body = (request.body ?? {}) as Partial<{ currentPassword: string; newPassword: string }>;
+
+    try {
+      if (!request.currentUser) {
+        return reply.code(401).send(unauthorized());
+      }
+
+      const user = await changePassword(repository, {
+        userId: request.currentUser.id,
+        currentPassword: body.currentPassword ?? "",
+        newPassword: body.newPassword ?? ""
+      });
+
+      if (!user) {
+        return reply.code(404).send(notFound("user not found"));
+      }
+
+      return reply.send(toAuthUserDto(user));
+    } catch (error) {
+      return handleAuthError(reply, error, "failed to change password");
+    }
+  });
+
+  server.get("/users", { preHandler: [server.requireAuth] }, async (_request, reply) => {
+    try {
+      const users = await listUsers(repository);
+      return reply.send({
+        items: users.map(toUserManagementDto)
+      });
+    } catch (error) {
+      return handleAuthError(reply, error, "failed to list users");
+    }
+  });
+
+  server.post("/users", { preHandler: [server.requireAuth, server.requireCsrf] }, async (request, reply) => {
+    const body = (request.body ?? {}) as Partial<{
+      email: string;
+      password: string;
+      displayName: string | null;
+      language: "ja" | "en";
+      teamId: string;
+    }>;
+
+    try {
+      const user = await registerUser(repository, {
+        email: body.email ?? "",
+        password: body.password ?? "",
+        displayName: body.displayName,
+        language: body.language,
+        teamId: body.teamId ?? "team-1"
+      });
+
+      return reply.code(201).send(toUserManagementDto(user));
+    } catch (error) {
+      return handleAuthError(reply, error, "failed to create user");
+    }
+  });
+
+  server.patch("/users/:id", { preHandler: [server.requireAuth, server.requireCsrf] }, async (request, reply) => {
+    const params = request.params as { id?: string };
+    const body = (request.body ?? {}) as Partial<{
+      displayName: string | null;
+      language: "ja" | "en";
+      teamId: string;
+      isActive: boolean;
+    }>;
+
+    try {
+      const user = await updateUser(repository, {
+        id: params.id ?? "",
+        displayName: body.displayName,
+        language: body.language,
+        teamId: body.teamId,
+        isActive: body.isActive
+      });
+
+      if (!user) {
+        return reply.code(404).send(notFound("user not found"));
+      }
+
+      return reply.send(toUserManagementDto(user));
+    } catch (error) {
+      return handleAuthError(reply, error, "failed to update user");
+    }
   });
 }
 
@@ -145,5 +263,50 @@ function unauthorized() {
       message: "authentication required",
       status: 401
     }
+  };
+}
+
+function notFound(message: string) {
+  return {
+    error: {
+      code: "NOT_FOUND",
+      message,
+      status: 404
+    }
+  };
+}
+
+function toAuthUserDto(user: {
+  id: string;
+  email: string;
+  displayName: string | null;
+  language: "ja" | "en";
+  teamId: string;
+  isActive: boolean;
+}) {
+  return {
+    id: user.id,
+    email: user.email,
+    displayName: user.displayName,
+    language: user.language,
+    teamId: user.teamId,
+    isActive: user.isActive
+  };
+}
+
+function toUserManagementDto(user: {
+  id: string;
+  email: string;
+  displayName: string | null;
+  language: "ja" | "en";
+  teamId: string;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}) {
+  return {
+    ...toAuthUserDto(user),
+    createdAt: user.createdAt.toISOString(),
+    updatedAt: user.updatedAt.toISOString()
   };
 }

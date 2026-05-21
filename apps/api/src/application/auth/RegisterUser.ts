@@ -11,7 +11,7 @@ import { hashPassword } from "../../infrastructure/auth/password.js";
  */
 export async function registerUser(
   repository: UserRepository,
-  input: { email: string; password: string }
+  input: { email: string; password: string; displayName?: string | null; language?: "ja" | "en"; teamId?: string }
 ) {
   const email = validateEmail(input.email);
   const password = validatePassword(input.password);
@@ -25,6 +25,28 @@ export async function registerUser(
   return repository.create({
     id: randomUUID(),
     email,
-    passwordHash
+    passwordHash,
+    displayName: normalizeOptionalText(input.displayName),
+    language: input.language ?? "ja",
+    teamId: normalizeRequiredText(input.teamId ?? "team-1", "teamId"),
+    isActive: true
   });
+}
+
+function normalizeOptionalText(value: string | null | undefined): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function normalizeRequiredText(value: string, fieldName: string): string {
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    throw new StateConflictError(`${fieldName} is required`);
+  }
+
+  return trimmed;
 }

@@ -1,4 +1,15 @@
-import type { AuthMeDto, AuthUserDto, CsrfTokenDto, LoginInput, RegisterInput } from "@miniflow/shared";
+import type {
+  AuthMeDto,
+  AuthUserDto,
+  ChangePasswordInput,
+  CreateUserInput,
+  CsrfTokenDto,
+  LoginInput,
+  RegisterInput,
+  UpdateAccountInput,
+  UpdateUserInput,
+  UserManagementDto
+} from "@miniflow/shared";
 
 let csrfTokenCache: string | null = null;
 
@@ -57,6 +68,75 @@ export async function fetchCurrentUser(apiBaseUrl: string): Promise<AuthMeDto | 
   }
 
   return parseResponse<AuthMeDto>(response);
+}
+
+export async function updateAccount(apiBaseUrl: string, input: UpdateAccountInput): Promise<AuthUserDto> {
+  const headers = await csrfHeaders(apiBaseUrl);
+  const response = await fetch(`${apiBaseUrl}/account`, {
+    method: "PATCH",
+    headers: {
+      "content-type": "application/json",
+      ...headers
+    },
+    body: JSON.stringify(input),
+    credentials: "include"
+  });
+
+  return parseResponse<AuthUserDto>(response);
+}
+
+export async function changePassword(apiBaseUrl: string, input: ChangePasswordInput): Promise<AuthUserDto> {
+  const headers = await csrfHeaders(apiBaseUrl);
+  const response = await fetch(`${apiBaseUrl}/account/password`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      ...headers
+    },
+    body: JSON.stringify(input),
+    credentials: "include"
+  });
+
+  return parseResponse<AuthUserDto>(response);
+}
+
+export async function listUsers(apiBaseUrl: string): Promise<{ items: UserManagementDto[] }> {
+  const response = await fetch(`${apiBaseUrl}/users`, {
+    credentials: "include",
+    cache: "no-store"
+  });
+
+  return parseResponse<{ items: UserManagementDto[] }>(response);
+}
+
+export async function createUser(apiBaseUrl: string, input: CreateUserInput): Promise<UserManagementDto> {
+  const headers = await csrfHeaders(apiBaseUrl);
+  const response = await fetch(`${apiBaseUrl}/users`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      ...headers
+    },
+    body: JSON.stringify(input),
+    credentials: "include"
+  });
+
+  return parseResponse<UserManagementDto>(response);
+}
+
+export async function updateUser(apiBaseUrl: string, id: string, input: UpdateUserInput): Promise<UserManagementDto> {
+  const headers = await csrfHeaders(apiBaseUrl);
+  const response = await fetch(`${apiBaseUrl}/users/${id}`, {
+    method: "PATCH",
+    headers: {
+      "content-type": "application/json",
+      ...headers
+    },
+    body: JSON.stringify(input),
+    credentials: "include"
+  });
+
+  return parseResponse<UserManagementDto>(response);
 }
 
 export async function csrfHeaders(apiBaseUrl: string): Promise<Record<string, string>> {

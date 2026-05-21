@@ -6,7 +6,14 @@ import { getCurrentUser } from "../../../application/auth/GetCurrentUser.js";
 
 declare module "fastify" {
   interface FastifyRequest {
-    currentUser: { id: string; email: string } | null;
+    currentUser: {
+      id: string;
+      email: string;
+      displayName: string | null;
+      language: "ja" | "en";
+      teamId: string;
+      isActive: boolean;
+    } | null;
   }
 
   interface FastifyInstance {
@@ -30,11 +37,18 @@ export const authPlugin = fp(async function authPlugin(server, options: { userRe
 
       const payload = await request.jwtVerify<{ sub: string }>({ onlyCookie: true });
       const user = await getCurrentUser(options.userRepository, payload.sub);
-      if (!user) {
+      if (!user || !user.isActive) {
         return reply.code(401).send(authError("UNAUTHORIZED", "authentication required", 401));
       }
 
-      request.currentUser = { id: user.id, email: user.email };
+      request.currentUser = {
+        id: user.id,
+        email: user.email,
+        displayName: user.displayName,
+        language: user.language,
+        teamId: user.teamId,
+        isActive: user.isActive
+      };
     } catch {
       return reply.code(401).send(authError("UNAUTHORIZED", "authentication required", 401));
     }

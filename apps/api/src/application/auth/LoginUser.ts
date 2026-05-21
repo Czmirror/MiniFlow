@@ -15,6 +15,9 @@ export async function loginUser(
   if (!user) {
     throw new InputValidationError("invalid email or password");
   }
+  if (!user.isActive) {
+    throw new InputValidationError("user is disabled");
+  }
 
   const matches = await verifyPassword(password, user.passwordHash);
   if (!matches) {
