@@ -9,6 +9,7 @@ export class User {
   readonly displayName: string | null;
   readonly language: "ja" | "en";
   readonly teamId: string;
+  readonly role: UserRole;
   readonly isActive: boolean;
   readonly createdAt: Date;
   readonly updatedAt: Date;
@@ -20,6 +21,7 @@ export class User {
     displayName?: string | null;
     language?: string;
     teamId?: string;
+    role?: string;
     isActive?: boolean;
     createdAt: Date;
     updatedAt: Date;
@@ -30,6 +32,7 @@ export class User {
     this.displayName = params.displayName ?? null;
     this.language = normalizeLanguage(params.language);
     this.teamId = params.teamId ?? "team-1";
+    this.role = normalizeRole(params.role);
     this.isActive = params.isActive ?? true;
     this.createdAt = params.createdAt;
     this.updatedAt = params.updatedAt;
@@ -43,10 +46,20 @@ export class User {
   }
 }
 
+export type UserRole = "Applicant" | "Approver" | "Admin";
+
 function normalizeLanguage(language: string | undefined): "ja" | "en" {
   if (language === "en") {
     return "en";
   }
 
   return "ja";
+}
+
+function normalizeRole(role: string | undefined): UserRole {
+  if (role === "Approver" || role === "Admin") {
+    return role;
+  }
+
+  return "Applicant";
 }

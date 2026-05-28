@@ -12,6 +12,7 @@ declare module "fastify" {
       displayName: string | null;
       language: "ja" | "en";
       teamId: string;
+      role: "Applicant" | "Approver" | "Admin";
       isActive: boolean;
     } | null;
   }
@@ -47,6 +48,7 @@ export const authPlugin = fp(async function authPlugin(server, options: { userRe
         displayName: user.displayName,
         language: user.language,
         teamId: user.teamId,
+        role: user.role,
         isActive: user.isActive
       };
     } catch {

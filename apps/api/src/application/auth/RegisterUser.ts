@@ -4,6 +4,7 @@ import type { UserRepository } from "../ports/UserRepository.js";
 import { validateEmail } from "./validation/validateEmail.js";
 import { validatePassword } from "./validation/validatePassword.js";
 import { hashPassword } from "../../infrastructure/auth/password.js";
+import type { UserRole } from "../../domain/user/User.js";
 
 /**
  * Registration keeps validation local to auth until cross-domain validation rules
@@ -11,7 +12,14 @@ import { hashPassword } from "../../infrastructure/auth/password.js";
  */
 export async function registerUser(
   repository: UserRepository,
-  input: { email: string; password: string; displayName?: string | null; language?: "ja" | "en"; teamId?: string }
+  input: {
+    email: string;
+    password: string;
+    displayName?: string | null;
+    language?: "ja" | "en";
+    teamId?: string;
+    role?: UserRole;
+  }
 ) {
   const email = validateEmail(input.email);
   const password = validatePassword(input.password);
@@ -29,6 +37,7 @@ export async function registerUser(
     displayName: normalizeOptionalText(input.displayName),
     language: input.language ?? "ja",
     teamId: normalizeRequiredText(input.teamId ?? "team-1", "teamId"),
+    role: input.role ?? "Applicant",
     isActive: true
   });
 }

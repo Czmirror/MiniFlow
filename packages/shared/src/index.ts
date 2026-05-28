@@ -57,8 +57,11 @@ export type AuthUserDto = {
   displayName: string | null;
   language: "ja" | "en";
   teamId: string;
+  role: UserRole;
   isActive: boolean;
 };
+
+export type UserRole = "Applicant" | "Approver" | "Admin";
 
 export type AuthMeDto = AuthUserDto;
 
@@ -87,12 +90,14 @@ export type CreateUserInput = {
   displayName?: string | null;
   language?: "ja" | "en";
   teamId: string;
+  role: UserRole;
 };
 
 export type UpdateUserInput = {
   displayName?: string | null;
   language?: "ja" | "en";
   teamId?: string;
+  role?: UserRole;
   isActive?: boolean;
 };
 

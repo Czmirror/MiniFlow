@@ -7,6 +7,7 @@ import type {
   AuthUserDto,
   CreateRequestInput,
   RequestDto,
+  UserRole,
   UserManagementDto
 } from "@miniflow/shared";
 import {
@@ -38,7 +39,8 @@ const initialUserForm = {
   password: "",
   displayName: "",
   language: "ja" as Locale,
-  teamId: defaultTeamId
+  teamId: defaultTeamId,
+  role: "Applicant" as UserRole
 };
 
 const initialPasswordForm = {
@@ -109,6 +111,15 @@ const messages = {
     enableUser: "有効化",
     active: "有効",
     inactive: "無効",
+    role: "ロール",
+    applicant: "申請者",
+    approver: "承認者",
+    admin: "管理者",
+    sendApprovalRequest: "承認依頼を送信",
+    sendingApprovalRequest: "送信中",
+    submitSuccess: "承認依頼を送信しました。",
+    draftSubmitHelp: "下書きを提出すると、承認者が承認または差し戻しできます。",
+    pendingApprovalHelp: "承認待ちです。承認者の判断を待っています。",
     userCreated: "ユーザーを作成しました。",
     userUpdated: "ユーザーを更新しました。",
     accountUpdated: "アカウント設定を保存しました。",
@@ -190,6 +201,15 @@ const messages = {
     enableUser: "Enable",
     active: "Active",
     inactive: "Inactive",
+    role: "Role",
+    applicant: "Applicant",
+    approver: "Approver",
+    admin: "Admin",
+    sendApprovalRequest: "Send Approval Request",
+    sendingApprovalRequest: "Sending",
+    submitSuccess: "Approval request sent.",
+    draftSubmitHelp: "Submit the draft so an approver can approve or reject it.",
+    pendingApprovalHelp: "This request is pending approval.",
     userCreated: "User created.",
     userUpdated: "User updated.",
     accountUpdated: "Account settings saved.",
@@ -271,6 +291,9 @@ export function MiniFlowApp() {
 
   const pendingApprovals = useMemo(() => {
     if (!currentUser) {
+      return [];
+    }
+    if (currentUser.role === "Applicant") {
       return [];
     }
 
@@ -435,6 +458,27 @@ export function MiniFlowApp() {
     }
   }
 
+  async function handleSubmitRequest() {
+    if (!selectedRequest) {
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    setMessage(null);
+
+    try {
+      const changed = await transitionRequest(apiBaseUrl, selectedRequest.id, "submit");
+      await refreshRequests(changed.teamId);
+      await openDetail(changed.id);
+      setMessage(labels.submitSuccess);
+    } catch (caughtError) {
+      setError(toErrorMessage(caughtError));
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function handleAccountSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setLoading(true);
@@ -486,7 +530,8 @@ export function MiniFlowApp() {
         password: userForm.password,
         displayName: userForm.displayName,
         language: userForm.language,
-        teamId: userForm.teamId
+        teamId: userForm.teamId,
+        role: userForm.role
       });
       setUserForm({ ...initialUserForm, teamId });
       await refreshUsers();
@@ -508,10 +553,11 @@ export function MiniFlowApp() {
 
     try {
       await updateUser(apiBaseUrl, user.id, {
-        displayName: user.displayName,
-        language: user.language,
-        teamId: user.teamId,
-        ...input
+                displayName: user.displayName,
+                language: user.language,
+                teamId: user.teamId,
+                role: user.role,
+                ...input
       });
       await refreshUsers();
       setMessage(labels.userUpdated);
@@ -591,6 +637,7 @@ export function MiniFlowApp() {
         <div className="sidebar-footer">
           <div className="user-block">
             <span>{currentUser.email}</span>
+            <span>{roleLabel(currentUser.role)}</span>
             <small>{currentUser.id}</small>
           </div>
           <button className="button quiet" type="button" onClick={() => void handleLogout()} disabled={loading}>
@@ -671,6 +718,7 @@ export function MiniFlowApp() {
             onBack={() => setView("requests")}
             onDecision={handleDecision}
             onDecisionReasonChange={setDecisionReason}
+            onSubmitRequest={handleSubmitRequest}
           />
         ) : null}
       </section>
@@ -925,14 +973,15 @@ function UserManagementView({
   onFormChange: (form: typeof initialUserForm) => void;
   onUpdate: (
     user: UserManagementDto,
-    input: { displayName?: string | null; language?: Locale; teamId?: string; isActive?: boolean }
+    input: { displayName?: string | null; language?: Locale; teamId?: string; role?: UserRole; isActive?: boolean }
   ) => void;
 }) {
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({
     displayName: "",
     language: "ja" as Locale,
-    teamId: defaultTeamId
+    teamId: defaultTeamId,
+    role: "Applicant" as UserRole
   });
 
   function startEdit(user: UserManagementDto) {
@@ -940,7 +989,8 @@ function UserManagementView({
     setEditForm({
       displayName: user.displayName ?? "",
       language: user.language,
-      teamId: user.teamId
+      teamId: user.teamId,
+      role: user.role
     });
   }
 
@@ -987,6 +1037,17 @@ function UserManagementView({
               <option value="en">{labels.english}</option>
             </select>
           </label>
+          <label className="field">
+            <span>{labels.role}</span>
+            <select
+              value={form.role}
+              onChange={(event) => onFormChange({ ...form, role: event.target.value as UserRole })}
+            >
+              <option value="Applicant">{labels.applicant}</option>
+              <option value="Approver">{labels.approver}</option>
+              <option value="Admin">{labels.admin}</option>
+            </select>
+          </label>
         </div>
         <button className="button primary" type="submit" disabled={loading}>
           {labels.createUser}
@@ -1000,6 +1061,7 @@ function UserManagementView({
               <th>{labels.email}</th>
               <th>{labels.displayName}</th>
               <th>{labels.team}</th>
+              <th>{labels.role}</th>
               <th>{labels.language}</th>
               <th>{labels.status}</th>
               <th aria-label={labels.editUser} />
@@ -1027,6 +1089,20 @@ function UserManagementView({
                     <input value={editForm.teamId} onChange={(event) => setEditForm({ ...editForm, teamId: event.target.value })} />
                   ) : (
                     user.teamId
+                  )}
+                </td>
+                <td>
+                  {editingUserId === user.id ? (
+                    <select
+                      value={editForm.role}
+                      onChange={(event) => setEditForm({ ...editForm, role: event.target.value as UserRole })}
+                    >
+                      <option value="Applicant">{labels.applicant}</option>
+                      <option value="Approver">{labels.approver}</option>
+                      <option value="Admin">{labels.admin}</option>
+                    </select>
+                  ) : (
+                    roleLabel(user.role)
                   )}
                 </td>
                 <td>
@@ -1089,7 +1165,8 @@ function RequestDetailView({
   request,
   onBack,
   onDecision,
-  onDecisionReasonChange
+  onDecisionReasonChange,
+  onSubmitRequest
 }: {
   approvals: ApprovalDto[];
   currentUser: AuthUserDto;
@@ -1099,6 +1176,7 @@ function RequestDetailView({
   onBack: () => void;
   onDecision: (action: "approve" | "reject") => void;
   onDecisionReasonChange: (reason: string) => void;
+  onSubmitRequest: () => void;
 }) {
   if (!request) {
     return (
@@ -1109,7 +1187,11 @@ function RequestDetailView({
   }
 
   const isOwnRequest = request.createdBy === currentUser.id;
-  const canDecide = request.status === "Pending" && !isOwnRequest;
+  const canSubmit = request.status === "Draft" && (isOwnRequest || currentUser.role === "Admin");
+  const canDecide =
+    request.status === "Pending" &&
+    !isOwnRequest &&
+    (currentUser.role === "Approver" || currentUser.role === "Admin");
 
   return (
     <div className="screen-grid">
@@ -1136,7 +1218,15 @@ function RequestDetailView({
           </div>
         </div>
 
-        {canDecide ? (
+        {canSubmit ? (
+          <aside className="decision-panel">
+            <h3>{labels.sendApprovalRequest}</h3>
+            <p>{labels.draftSubmitHelp}</p>
+            <button className="button primary" type="button" disabled={loading} onClick={() => void onSubmitRequest()}>
+              {loading ? labels.sendingApprovalRequest : labels.sendApprovalRequest}
+            </button>
+          </aside>
+        ) : canDecide ? (
           <aside className="decision-panel">
             <h3>{labels.approval}</h3>
             <label className="field">
@@ -1169,7 +1259,7 @@ function RequestDetailView({
         ) : (
           <aside className="decision-panel muted">
             <h3>{labels.approval}</h3>
-            <p>{approvalUnavailableMessage(request.status, isOwnRequest)}</p>
+            <p>{approvalUnavailableMessage(request.status, isOwnRequest, currentUser.role)}</p>
           </aside>
         )}
       </section>
@@ -1223,7 +1313,21 @@ function StatusMessage({ error, message }: { error: string | null; message: stri
   return <p className={error ? "notice error" : "notice success"}>{error ?? message}</p>;
 }
 
-function approvalUnavailableMessage(status: RequestDto["status"], isOwnRequest: boolean) {
+function roleLabel(role: UserRole) {
+  if (role === "Admin") {
+    return labels.admin;
+  }
+  if (role === "Approver") {
+    return labels.approver;
+  }
+
+  return labels.applicant;
+}
+
+function approvalUnavailableMessage(status: RequestDto["status"], isOwnRequest: boolean, role: UserRole) {
+  if (status === "Pending" && role === "Applicant") {
+    return labels.pendingApprovalHelp;
+  }
   if (status !== "Pending") {
     return labels.approvalAvailableAfterSubmit;
   }

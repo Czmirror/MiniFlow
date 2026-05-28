@@ -1,5 +1,6 @@
 import type { UserRepository } from "../../application/ports/UserRepository.js";
 import { User } from "../../domain/user/User.js";
+import type { UserRole } from "../../domain/user/User.js";
 import { prisma as prismaClient } from "../db/prisma.js";
 
 /**
@@ -16,6 +17,7 @@ export class PrismaUserRepository implements UserRepository {
     displayName?: string | null;
     language?: "ja" | "en";
     teamId?: string;
+    role?: UserRole;
     isActive?: boolean;
   }): Promise<User> {
     const record = await this.prisma.userRecord.create({
@@ -30,6 +32,7 @@ export class PrismaUserRepository implements UserRepository {
     displayName?: string | null;
     language?: "ja" | "en";
     teamId?: string;
+    role?: UserRole;
     isActive?: boolean;
   }): Promise<User> {
     const record = await this.prisma.userRecord.update({
@@ -38,6 +41,7 @@ export class PrismaUserRepository implements UserRepository {
         displayName: input.displayName,
         language: input.language,
         teamId: input.teamId,
+        role: input.role,
         isActive: input.isActive
       }
     });
@@ -83,6 +87,7 @@ export class PrismaUserRepository implements UserRepository {
     displayName: string | null;
     language: string;
     teamId: string;
+    role: string;
     isActive: boolean;
     createdAt: Date;
     updatedAt: Date;

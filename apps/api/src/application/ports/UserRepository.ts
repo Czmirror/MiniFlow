@@ -1,4 +1,5 @@
 import type { User } from "../../domain/user/User.js";
+import type { UserRole } from "../../domain/user/User.js";
 
 export interface UserRepository {
   create(input: {
@@ -8,6 +9,7 @@ export interface UserRepository {
     displayName?: string | null;
     language?: "ja" | "en";
     teamId?: string;
+    role?: UserRole;
     isActive?: boolean;
   }): Promise<User>;
   updateProfile(input: {
@@ -15,6 +17,7 @@ export interface UserRepository {
     displayName?: string | null;
     language?: "ja" | "en";
     teamId?: string;
+    role?: UserRole;
     isActive?: boolean;
   }): Promise<User>;
   updatePassword(input: { id: string; passwordHash: string }): Promise<User>;

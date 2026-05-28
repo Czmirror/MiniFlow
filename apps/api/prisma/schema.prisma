@@ -38,11 +38,12 @@ model UserRecord {
   displayName  String?
   language     String   @default("ja")
   teamId       String   @default("team-1")
+  role         String   @default("Applicant")
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  @@index([teamId, isActive])
+  @@index([teamId, role, isActive])
   @@map("users")
 }
 

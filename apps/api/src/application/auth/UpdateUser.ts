@@ -1,5 +1,6 @@
 import { InputValidationError } from "../errors/InputValidationError.js";
 import type { UserRepository } from "../ports/UserRepository.js";
+import type { UserRole } from "../../domain/user/User.js";
 
 export async function updateUser(
   repository: UserRepository,
@@ -8,6 +9,7 @@ export async function updateUser(
     displayName?: string | null;
     language?: "ja" | "en";
     teamId?: string;
+    role?: UserRole;
     isActive?: boolean;
   }
 ) {
@@ -22,6 +24,7 @@ export async function updateUser(
     displayName: normalizeOptionalString(input.displayName),
     language: input.language,
     teamId: typeof input.teamId === "string" ? normalizeRequiredString(input.teamId, "teamId") : undefined,
+    role: input.role,
     isActive: input.isActive
   });
 }

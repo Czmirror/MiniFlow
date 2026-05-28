@@ -3,6 +3,7 @@ import type { FastifyInstance } from "fastify";
 import type { PrismaClient } from "@prisma/client";
 import { InputValidationError } from "../../../application/errors/InputValidationError.js";
 import { StateConflictError } from "../../../application/errors/StateConflictError.js";
+import { AuthorizationError } from "../../../application/errors/AuthorizationError.js";
 import { loginUser } from "../../../application/auth/LoginUser.js";
 import { registerUser } from "../../../application/auth/RegisterUser.js";
 import { changePassword } from "../../../application/auth/ChangePassword.js";
@@ -26,6 +27,7 @@ export function registerAuthRoutes(server: FastifyInstance, prisma: PrismaClient
       displayName: string | null;
       language: "ja" | "en";
       teamId: string;
+      role: "Applicant" | "Approver" | "Admin";
     }>;
 
     try {
@@ -34,7 +36,8 @@ export function registerAuthRoutes(server: FastifyInstance, prisma: PrismaClient
         password: body.password ?? "",
         displayName: body.displayName,
         language: body.language,
-        teamId: body.teamId
+        teamId: body.teamId,
+        role: "Applicant"
       });
 
       return reply.code(201).send({
@@ -152,15 +155,21 @@ export function registerAuthRoutes(server: FastifyInstance, prisma: PrismaClient
       displayName: string | null;
       language: "ja" | "en";
       teamId: string;
+      role: "Applicant" | "Approver" | "Admin";
     }>;
 
     try {
+      if (!request.currentUser || request.currentUser.role !== "Admin") {
+        throw new AuthorizationError("user management requires admin role");
+      }
+
       const user = await registerUser(repository, {
         email: body.email ?? "",
         password: body.password ?? "",
         displayName: body.displayName,
         language: body.language,
-        teamId: body.teamId ?? "team-1"
+        teamId: body.teamId ?? "team-1",
+        role: body.role ?? "Applicant"
       });
 
       return reply.code(201).send(toUserManagementDto(user));
@@ -175,15 +184,21 @@ export function registerAuthRoutes(server: FastifyInstance, prisma: PrismaClient
       displayName: string | null;
       language: "ja" | "en";
       teamId: string;
+      role: "Applicant" | "Approver" | "Admin";
       isActive: boolean;
     }>;
 
     try {
+      if (!request.currentUser || request.currentUser.role !== "Admin") {
+        throw new AuthorizationError("user management requires admin role");
+      }
+
       const user = await updateUser(repository, {
         id: params.id ?? "",
         displayName: body.displayName,
         language: body.language,
         teamId: body.teamId,
+        role: body.role,
         isActive: body.isActive
       });
 
@@ -247,6 +262,16 @@ function handleAuthError(reply: import("fastify").FastifyReply, error: unknown, 
     });
   }
 
+  if (error instanceof AuthorizationError) {
+    return reply.code(error.statusCode).send({
+      error: {
+        code: "FORBIDDEN",
+        message: error.message,
+        status: error.statusCode
+      }
+    });
+  }
+
   return reply.code(500).send({
     error: {
       code: "INTERNAL_SERVER_ERROR",
@@ -282,6 +307,7 @@ function toAuthUserDto(user: {
   displayName: string | null;
   language: "ja" | "en";
   teamId: string;
+  role: "Applicant" | "Approver" | "Admin";
   isActive: boolean;
 }) {
   return {
@@ -290,6 +316,7 @@ function toAuthUserDto(user: {
     displayName: user.displayName,
     language: user.language,
     teamId: user.teamId,
+    role: user.role,
     isActive: user.isActive
   };
 }
@@ -300,6 +327,7 @@ function toUserManagementDto(user: {
   displayName: string | null;
   language: "ja" | "en";
   teamId: string;
+  role: "Applicant" | "Approver" | "Admin";
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;

@@ -3,6 +3,7 @@ import type { PrismaClient } from "@prisma/client";
 import type { ListRequestsInput } from "@miniflow/shared";
 import { InputValidationError } from "../../../application/errors/InputValidationError.js";
 import { StateConflictError } from "../../../application/errors/StateConflictError.js";
+import { AuthorizationError } from "../../../application/errors/AuthorizationError.js";
 import { createRequest } from "../../../application/requests/CreateRequest.js";
 import { approveRequest } from "../../../application/requests/ApproveRequest.js";
 import { deleteRequest } from "../../../application/requests/DeleteRequest.js";
@@ -136,7 +137,15 @@ export function registerRequestRoutes(server: FastifyInstance, prisma: PrismaCli
     const params = request.params as { id?: string };
 
     try {
-      const submittedRequest = await submitRequest(repository, params.id ?? "");
+      if (!request.currentUser) {
+        return reply.code(401).send(notAuthorizedError());
+      }
+
+      const submittedRequest = await submitRequest(repository, {
+        id: params.id ?? "",
+        actorId: request.currentUser.id,
+        actorRole: request.currentUser.role
+      });
 
       if (!submittedRequest) {
         return reply.code(404).send({
@@ -166,6 +175,7 @@ export function registerRequestRoutes(server: FastifyInstance, prisma: PrismaCli
       const approvedRequest = await approveRequest(repository, {
         id: params.id ?? "",
         actorId: request.currentUser.id,
+        actorRole: request.currentUser.role,
         reason: body.reason
       });
 
@@ -191,6 +201,7 @@ export function registerRequestRoutes(server: FastifyInstance, prisma: PrismaCli
       const rejectedRequest = await rejectRequest(repository, {
         id: params.id ?? "",
         actorId: request.currentUser.id,
+        actorRole: request.currentUser.role,
         reason: body.reason
       });
 
@@ -258,6 +269,16 @@ function handleRouteError(
     return reply.code(error.statusCode).send({
       error: {
         code: "STATE_CONFLICT",
+        message: error.message,
+        status: error.statusCode
+      }
+    });
+  }
+
+  if (error instanceof AuthorizationError) {
+    return reply.code(error.statusCode).send({
+      error: {
+        code: "FORBIDDEN",
         message: error.message,
         status: error.statusCode
       }

@@ -1,11 +1,13 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { approveRequest } from "../../../../apps/api/src/application/requests/ApproveRequest";
+import { submitRequest } from "../../../../apps/api/src/application/requests/SubmitRequest";
 import type {
   NormalizedListRequestsInput,
   RequestRepository
 } from "../../../../apps/api/src/application/ports/RequestRepository";
 import { StateConflictError } from "../../../../apps/api/src/application/errors/StateConflictError";
+import { AuthorizationError } from "../../../../apps/api/src/application/errors/AuthorizationError";
 import { Approval } from "../../../../apps/api/src/domain/request/Approval";
 import { Request } from "../../../../apps/api/src/domain/request/Request";
 import { PrismaRequestRepository } from "../../../../apps/api/src/infrastructure/repositories/PrismaRequestRepository";
@@ -139,9 +141,68 @@ describe("apps/api approval use cases", () => {
     );
 
     await expect(
-      approveRequest(repository, { id: "request-1", actorId: "approver-1" })
+      approveRequest(repository, { id: "request-1", actorId: "approver-1", actorRole: "Approver" })
     ).rejects.toBeInstanceOf(StateConflictError);
     expect(repository.approveCalled).toBe(0);
+  });
+
+  it("rejects self approval even when actor has approver role", async () => {
+    const repository = new InMemoryRequestRepository();
+    repository.seed(
+      Request.rehydrate({
+        ...baseRequestParams(),
+        createdBy: "approver-1",
+        status: "Pending"
+      })
+    );
+
+    await expect(
+      approveRequest(repository, { id: "request-1", actorId: "approver-1", actorRole: "Approver" })
+    ).rejects.toBeInstanceOf(AuthorizationError);
+    expect(repository.approveCalled).toBe(0);
+  });
+
+  it("rejects approval by applicant role", async () => {
+    const repository = new InMemoryRequestRepository();
+    repository.seed(
+      Request.rehydrate({
+        ...baseRequestParams(),
+        status: "Pending"
+      })
+    );
+
+    await expect(
+      approveRequest(repository, { id: "request-1", actorId: "approver-1", actorRole: "Applicant" })
+    ).rejects.toBeInstanceOf(AuthorizationError);
+    expect(repository.approveCalled).toBe(0);
+  });
+
+  it("allows requester to submit draft to pending", async () => {
+    const repository = new InMemoryRequestRepository();
+    repository.seed(Request.rehydrate({ ...baseRequestParams(), status: "Draft" }));
+
+    const submitted = await submitRequest(repository, {
+      id: "request-1",
+      actorId: "11111111-1111-1111-1111-111111111111",
+      actorRole: "Applicant"
+    });
+
+    expect(submitted?.status).toBe("Pending");
+    expect(repository.updateCalled).toBe(1);
+  });
+
+  it("rejects draft submission by another applicant", async () => {
+    const repository = new InMemoryRequestRepository();
+    repository.seed(Request.rehydrate({ ...baseRequestParams(), status: "Draft" }));
+
+    await expect(
+      submitRequest(repository, {
+        id: "request-1",
+        actorId: "other-user",
+        actorRole: "Applicant"
+      })
+    ).rejects.toBeInstanceOf(AuthorizationError);
+    expect(repository.updateCalled).toBe(0);
   });
 });
 
@@ -204,6 +265,7 @@ describe("apps/api Prisma approval persistence contract", () => {
 
 class InMemoryRequestRepository implements RequestRepository {
   approveCalled = 0;
+  updateCalled = 0;
   private readonly store = new Map<string, Request>();
 
   seed(request: Request): void {
@@ -216,6 +278,7 @@ class InMemoryRequestRepository implements RequestRepository {
   }
 
   async update(request: Request): Promise<Request> {
+    this.updateCalled += 1;
     this.store.set(request.id, request);
     return request;
   }
