@@ -159,20 +159,10 @@ td small {
   padding: 1.5rem;
 }
 
-.topbar {
-  align-items: flex-end;
-  display: flex;
-  gap: 0.75rem;
-  justify-content: flex-end;
+.readonly-field strong {
+  overflow-wrap: anywhere;
 }
 
-.team-control {
-  display: grid;
-  gap: 0.35rem;
-  max-width: 260px;
-}
-
-.team-control span,
 .field span {
   color: #435466;
   font-size: 0.86rem;
@@ -355,10 +345,23 @@ td small {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
 .stack,
 .field {
   display: grid;
   gap: 0.55rem;
+}
+
+.readonly-field {
+  background: #f5f8fb;
+  border: 1px solid #d9e1ea;
+  border-radius: 6px;
+  padding: 0.8rem;
 }
 
 .detail-id {
@@ -506,7 +509,6 @@ td small {
     padding: 1rem;
   }
 
-  .topbar,
   .screen-header,
   .detail-header {
     align-items: stretch;

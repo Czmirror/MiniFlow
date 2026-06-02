@@ -20,7 +20,7 @@ import {
   updateAccount,
   updateUser
 } from "../lib/authApi";
-import { createRequest, getRequest, listRequests, transitionRequest } from "../lib/requestApi";
+import { createRequest, getRequest, listRequests, transitionRequest, updateRequest } from "../lib/requestApi";
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
 const defaultTeamId = "team-1";
@@ -58,7 +58,6 @@ const messages = {
     email: "メールアドレス",
     password: "パスワード",
     team: "チーム",
-    refresh: "更新",
     overview: "概要",
     requests: "申請",
     dashboard: "ダッシュボード",
@@ -115,18 +114,25 @@ const messages = {
     applicant: "申請者",
     approver: "承認者",
     admin: "管理者",
-    sendApprovalRequest: "承認依頼を送信",
-    sendingApprovalRequest: "送信中",
-    submitSuccess: "承認依頼を送信しました。",
+    saveDraft: "下書き保存",
+    savingDraft: "保存中",
+    submitRequest: "申請する",
+    submittingRequest: "申請中",
+    submitSuccess: "申請しました。",
+    reviseRequest: "修正する",
+    revisingRequest: "修正中",
+    reviseSuccess: "下書きに戻しました。内容を修正して再申請できます。",
+    saveChanges: "変更を保存",
+    updateSuccess: "申請内容を保存しました。",
     draftSubmitHelp: "下書きを提出すると、承認者が承認または差し戻しできます。",
+    rejectedReviseHelp: "差し戻された申請は、下書きに戻して修正できます。",
     pendingApprovalHelp: "承認待ちです。承認者の判断を待っています。",
     userCreated: "ユーザーを作成しました。",
     userUpdated: "ユーザーを更新しました。",
     accountUpdated: "アカウント設定を保存しました。",
     passwordChanged: "パスワードを変更しました。",
     loginSuccess: "ログインしました。",
-    refreshSuccess: "一覧を更新しました。",
-    createSuccess: "申請を作成しました。",
+    createSuccess: "下書きを保存しました。",
     approveSuccess: "承認しました。",
     rejectSuccess: "差し戻しました。",
     approvalAvailableAfterSubmit: "承認操作は、申請が提出された後に利用できます。",
@@ -148,7 +154,6 @@ const messages = {
     email: "Email",
     password: "Password",
     team: "Team",
-    refresh: "Refresh",
     overview: "Overview",
     requests: "Requests",
     dashboard: "Dashboard",
@@ -205,18 +210,25 @@ const messages = {
     applicant: "Applicant",
     approver: "Approver",
     admin: "Admin",
-    sendApprovalRequest: "Send Approval Request",
-    sendingApprovalRequest: "Sending",
-    submitSuccess: "Approval request sent.",
+    saveDraft: "Save Draft",
+    savingDraft: "Saving",
+    submitRequest: "Submit",
+    submittingRequest: "Submitting",
+    submitSuccess: "Submitted.",
+    reviseRequest: "Revise",
+    revisingRequest: "Revising",
+    reviseSuccess: "Returned to draft. You can edit and resubmit it.",
+    saveChanges: "Save Changes",
+    updateSuccess: "Request changes saved.",
     draftSubmitHelp: "Submit the draft so an approver can approve or reject it.",
+    rejectedReviseHelp: "Rejected requests can be returned to draft for editing.",
     pendingApprovalHelp: "This request is pending approval.",
     userCreated: "User created.",
     userUpdated: "User updated.",
     accountUpdated: "Account settings saved.",
     passwordChanged: "Password changed.",
     loginSuccess: "Logged in.",
-    refreshSuccess: "Request list refreshed.",
-    createSuccess: "Request created.",
+    createSuccess: "Draft saved.",
     approveSuccess: "Approved.",
     rejectSuccess: "Rejected.",
     approvalAvailableAfterSubmit: "Approval actions are available only after the request is submitted.",
@@ -262,8 +274,12 @@ export function MiniFlowApp() {
     { view: "pending", label: labels.pendingApprovals },
     { view: "create", label: labels.requestCreate },
     { view: "account", label: labels.accountSettings },
-    { view: "users", label: labels.userManagement }
+    ...(currentUser?.role === "Admin" ? [{ view: "users" as const, label: labels.userManagement }] : [])
   ];
+  const currentPageTitle =
+    view === "detail"
+      ? labels.requestDetail
+      : navItems.find((item) => item.view === view)?.label ?? labels.dashboard;
 
   useEffect(() => {
     void initialize();
@@ -309,8 +325,10 @@ export function MiniFlowApp() {
       setCurrentUser(user);
       if (user) {
         applyUserSettings(user);
-        await refreshRequests(defaultTeamId);
-        await refreshUsers();
+        await refreshRequests();
+        if (user.role === "Admin") {
+          await refreshUsers();
+        }
       }
     } catch (caughtError) {
       setError(toErrorMessage(caughtError));
@@ -329,8 +347,10 @@ export function MiniFlowApp() {
       const user = await login(apiBaseUrl, { email, password });
       setCurrentUser(user);
       applyUserSettings(user);
-      await refreshRequests(teamId);
-      await refreshUsers();
+      await refreshRequests();
+      if (user.role === "Admin") {
+        await refreshUsers();
+      }
       setView("dashboard");
       setMessage(labels.loginSuccess);
     } catch (caughtError) {
@@ -360,8 +380,8 @@ export function MiniFlowApp() {
     }
   }
 
-  async function refreshRequests(nextTeamId = teamId) {
-    const response = await listRequests(apiBaseUrl, nextTeamId, false);
+  async function refreshRequests() {
+    const response = await listRequests(apiBaseUrl, false);
     setRequests(response.items);
   }
 
@@ -370,39 +390,34 @@ export function MiniFlowApp() {
     setUsers(response.items);
   }
 
-  async function handleRefresh() {
-    setLoading(true);
-    setError(null);
-    setMessage(null);
-
-    try {
-      await refreshRequests(teamId);
-      await refreshUsers();
-      setMessage(labels.refreshSuccess);
-    } catch (caughtError) {
-      setError(toErrorMessage(caughtError));
-    } finally {
-      setLoading(false);
-    }
+  async function handleCreateDraft(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await createFromForm(false);
   }
 
-  async function handleCreate(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function handleCreateAndSubmit() {
+    await createFromForm(true);
+  }
+
+  async function createFromForm(submitAfterCreate: boolean) {
     setLoading(true);
     setError(null);
     setMessage(null);
 
     try {
       const created = await createRequest(apiBaseUrl, {
-        teamId: createForm.teamId.trim(),
+        teamId,
         title: createForm.title.trim(),
         body: createForm.body.trim()
       });
+      const nextRequest = submitAfterCreate
+        ? await transitionRequest(apiBaseUrl, created.id, "submit")
+        : created;
+      await refreshRequests();
+      await openDetail(nextRequest.id);
       setTeamId(created.teamId);
       setCreateForm({ ...initialCreateForm, teamId: created.teamId });
-      await refreshRequests(created.teamId);
-      await openDetail(created.id);
-      setMessage(labels.createSuccess);
+      setMessage(submitAfterCreate ? labels.submitSuccess : labels.createSuccess);
     } catch (caughtError) {
       setError(toErrorMessage(caughtError));
     } finally {
@@ -448,7 +463,7 @@ export function MiniFlowApp() {
         action,
         decisionReason.trim() ? { reason: decisionReason.trim() } : undefined
       );
-      await refreshRequests(changed.teamId);
+      await refreshRequests();
       await openDetail(changed.id);
       setMessage(action === "approve" ? labels.approveSuccess : labels.rejectSuccess);
     } catch (caughtError) {
@@ -458,7 +473,7 @@ export function MiniFlowApp() {
     }
   }
 
-  async function handleSubmitRequest() {
+  async function handleSubmitRequest(input?: { title: string; body: string }) {
     if (!selectedRequest) {
       return;
     }
@@ -468,10 +483,55 @@ export function MiniFlowApp() {
     setMessage(null);
 
     try {
-      const changed = await transitionRequest(apiBaseUrl, selectedRequest.id, "submit");
-      await refreshRequests(changed.teamId);
+      const requestToSubmit = input
+        ? await updateRequest(apiBaseUrl, selectedRequest.id, input)
+        : selectedRequest;
+      const changed = await transitionRequest(apiBaseUrl, requestToSubmit.id, "submit");
+      await refreshRequests();
       await openDetail(changed.id);
       setMessage(labels.submitSuccess);
+    } catch (caughtError) {
+      setError(toErrorMessage(caughtError));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleReviseRequest() {
+    if (!selectedRequest) {
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    setMessage(null);
+
+    try {
+      const changed = await transitionRequest(apiBaseUrl, selectedRequest.id, "revise");
+      await refreshRequests();
+      await openDetail(changed.id);
+      setMessage(labels.reviseSuccess);
+    } catch (caughtError) {
+      setError(toErrorMessage(caughtError));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleUpdateSelectedRequest(input: { title: string; body: string }) {
+    if (!selectedRequest) {
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    setMessage(null);
+
+    try {
+      const changed = await updateRequest(apiBaseUrl, selectedRequest.id, input);
+      await refreshRequests();
+      await openDetail(changed.id);
+      setMessage(labels.updateSuccess);
     } catch (caughtError) {
       setError(toErrorMessage(caughtError));
     } finally {
@@ -553,11 +613,11 @@ export function MiniFlowApp() {
 
     try {
       await updateUser(apiBaseUrl, user.id, {
-                displayName: user.displayName,
-                language: user.language,
-                teamId: user.teamId,
-                role: user.role,
-                ...input
+        displayName: user.displayName,
+        language: user.language,
+        teamId: user.teamId,
+        role: user.role,
+        ...input
       });
       await refreshUsers();
       setMessage(labels.userUpdated);
@@ -618,7 +678,7 @@ export function MiniFlowApp() {
       <aside className="sidebar">
         <div>
           <p className="eyebrow">MiniFlow</p>
-          <h1>{labels.appTitle}</h1>
+          <h1>{currentPageTitle}</h1>
         </div>
 
         <nav className="nav-list" aria-label="主要ナビゲーション">
@@ -647,16 +707,6 @@ export function MiniFlowApp() {
       </aside>
 
       <section className="workspace">
-        <header className="topbar">
-          <label className="team-control">
-            <span>{labels.team}</span>
-            <input value={teamId} onChange={(event) => setTeamId(event.target.value)} />
-          </label>
-          <button className="button secondary" type="button" onClick={() => void handleRefresh()} disabled={loading}>
-            {labels.refresh}
-          </button>
-        </header>
-
         <StatusMessage error={error} message={message} />
 
         {view === "dashboard" ? (
@@ -680,7 +730,8 @@ export function MiniFlowApp() {
             form={createForm}
             loading={loading}
             onChange={setCreateForm}
-            onSubmit={handleCreate}
+            onSaveDraft={handleCreateDraft}
+            onSubmitRequest={handleCreateAndSubmit}
           />
         ) : null}
 
@@ -696,7 +747,7 @@ export function MiniFlowApp() {
           />
         ) : null}
 
-        {view === "users" ? (
+        {view === "users" && currentUser.role === "Admin" ? (
           <UserManagementView
             currentUser={currentUser}
             form={userForm}
@@ -718,7 +769,9 @@ export function MiniFlowApp() {
             onBack={() => setView("requests")}
             onDecision={handleDecision}
             onDecisionReasonChange={setDecisionReason}
+            onReviseRequest={handleReviseRequest}
             onSubmitRequest={handleSubmitRequest}
+            onUpdateRequest={handleUpdateSelectedRequest}
           />
         ) : null}
       </section>
@@ -844,12 +897,14 @@ function CreateRequestView({
   form,
   loading,
   onChange,
-  onSubmit
+  onSaveDraft,
+  onSubmitRequest
 }: {
   form: CreateRequestInput;
   loading: boolean;
   onChange: (form: CreateRequestInput) => void;
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onSaveDraft: (event: FormEvent<HTMLFormElement>) => void;
+  onSubmitRequest: (input?: { title: string; body: string }) => void;
 }) {
   return (
     <div className="screen-grid">
@@ -858,11 +913,11 @@ function CreateRequestView({
         <h2>{labels.requestCreate}</h2>
       </section>
 
-      <form className="form-panel" onSubmit={onSubmit}>
-        <label className="field">
+      <form className="form-panel" onSubmit={onSaveDraft}>
+        <div className="field readonly-field">
           <span>{labels.team}</span>
-          <input value={form.teamId} onChange={(event) => onChange({ ...form, teamId: event.target.value })} />
-        </label>
+          <strong>{form.teamId}</strong>
+        </div>
         <label className="field">
           <span>{labels.title}</span>
           <input value={form.title} onChange={(event) => onChange({ ...form, title: event.target.value })} />
@@ -871,9 +926,14 @@ function CreateRequestView({
           <span>{labels.body}</span>
           <textarea rows={8} value={form.body} onChange={(event) => onChange({ ...form, body: event.target.value })} />
         </label>
-        <button className="button primary" type="submit" disabled={loading}>
-          {loading ? labels.creating : labels.create}
-        </button>
+        <div className="form-actions">
+          <button className="button secondary" type="submit" disabled={loading}>
+            {loading ? labels.savingDraft : labels.saveDraft}
+          </button>
+          <button className="button primary" type="button" disabled={loading} onClick={() => void onSubmitRequest()}>
+            {loading ? labels.submittingRequest : labels.submitRequest}
+          </button>
+        </div>
       </form>
     </div>
   );
@@ -1166,7 +1226,9 @@ function RequestDetailView({
   onBack,
   onDecision,
   onDecisionReasonChange,
-  onSubmitRequest
+  onReviseRequest,
+  onSubmitRequest,
+  onUpdateRequest
 }: {
   approvals: ApprovalDto[];
   currentUser: AuthUserDto;
@@ -1176,8 +1238,21 @@ function RequestDetailView({
   onBack: () => void;
   onDecision: (action: "approve" | "reject") => void;
   onDecisionReasonChange: (reason: string) => void;
-  onSubmitRequest: () => void;
+  onReviseRequest: () => void;
+  onSubmitRequest: (input?: { title: string; body: string }) => void;
+  onUpdateRequest: (input: { title: string; body: string }) => void;
 }) {
+  const [editForm, setEditForm] = useState({ title: "", body: "" });
+
+  useEffect(() => {
+    if (!request) {
+      setEditForm({ title: "", body: "" });
+      return;
+    }
+
+    setEditForm({ title: request.title, body: request.body });
+  }, [request?.id, request?.title, request?.body]);
+
   if (!request) {
     return (
       <div className="screen-grid">
@@ -1188,6 +1263,8 @@ function RequestDetailView({
 
   const isOwnRequest = request.createdBy === currentUser.id;
   const canSubmit = request.status === "Draft" && (isOwnRequest || currentUser.role === "Admin");
+  const canEdit = request.status === "Draft" && (isOwnRequest || currentUser.role === "Admin");
+  const canRevise = request.status === "Rejected" && (isOwnRequest || currentUser.role === "Admin");
   const canDecide =
     request.status === "Pending" &&
     !isOwnRequest &&
@@ -1206,10 +1283,38 @@ function RequestDetailView({
 
       <section className="detail-layout">
         <div className="detail-main">
-          <div className="field-read">
-            <span>{labels.body}</span>
-            <p>{request.body}</p>
-          </div>
+          {canEdit ? (
+            <div className="stack">
+              <label className="field">
+                <span>{labels.title}</span>
+                <input
+                  value={editForm.title}
+                  onChange={(event) => setEditForm({ ...editForm, title: event.target.value })}
+                />
+              </label>
+              <label className="field">
+                <span>{labels.body}</span>
+                <textarea
+                  rows={7}
+                  value={editForm.body}
+                  onChange={(event) => setEditForm({ ...editForm, body: event.target.value })}
+                />
+              </label>
+              <button
+                className="button secondary"
+                type="button"
+                disabled={loading}
+                onClick={() => void onUpdateRequest(editForm)}
+              >
+                {labels.saveChanges}
+              </button>
+            </div>
+          ) : (
+            <div className="field-read">
+              <span>{labels.body}</span>
+              <p>{request.body}</p>
+            </div>
+          )}
           <div className="meta-grid">
             <Meta label={labels.team} value={request.teamId} />
             <Meta label={labels.requester} value={request.createdBy} />
@@ -1220,10 +1325,23 @@ function RequestDetailView({
 
         {canSubmit ? (
           <aside className="decision-panel">
-            <h3>{labels.sendApprovalRequest}</h3>
+            <h3>{labels.submitRequest}</h3>
             <p>{labels.draftSubmitHelp}</p>
-            <button className="button primary" type="button" disabled={loading} onClick={() => void onSubmitRequest()}>
-              {loading ? labels.sendingApprovalRequest : labels.sendApprovalRequest}
+            <button
+              className="button primary"
+              type="button"
+              disabled={loading}
+              onClick={() => void onSubmitRequest(canEdit ? editForm : undefined)}
+            >
+              {loading ? labels.submittingRequest : labels.submitRequest}
+            </button>
+          </aside>
+        ) : canRevise ? (
+          <aside className="decision-panel">
+            <h3>{labels.reviseRequest}</h3>
+            <p>{labels.rejectedReviseHelp}</p>
+            <button className="button primary" type="button" disabled={loading} onClick={() => void onReviseRequest()}>
+              {loading ? labels.revisingRequest : labels.reviseRequest}
             </button>
           </aside>
         ) : canDecide ? (

@@ -31,7 +31,7 @@ export class User {
     this.passwordHash = params.passwordHash;
     this.displayName = params.displayName ?? null;
     this.language = normalizeLanguage(params.language);
-    this.teamId = params.teamId ?? "team-1";
+    this.teamId = normalizeTeamId(params.teamId);
     this.role = normalizeRole(params.role);
     this.isActive = params.isActive ?? true;
     this.createdAt = params.createdAt;
@@ -39,9 +39,6 @@ export class User {
 
     if (this.email.trim().length === 0) {
       throw new Error("email must not be empty");
-    }
-    if (this.teamId.trim().length === 0) {
-      throw new Error("teamId must not be empty");
     }
   }
 }
@@ -62,4 +59,13 @@ function normalizeRole(role: string | undefined): UserRole {
   }
 
   return "Applicant";
+}
+
+function normalizeTeamId(teamId: string | undefined): string {
+  if (typeof teamId !== "string") {
+    return "team-1";
+  }
+
+  const trimmed = teamId.trim();
+  return trimmed.length > 0 ? trimmed : "team-1";
 }

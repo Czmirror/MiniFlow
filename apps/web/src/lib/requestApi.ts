@@ -21,8 +21,8 @@ export async function createRequest(apiBaseUrl: string, input: CreateRequestInpu
   return parseResponse<RequestDto>(response);
 }
 
-export async function listRequests(apiBaseUrl: string, teamId: string, includeDeleted = true): Promise<ListRequestsResponse> {
-  const params = new URLSearchParams({ teamId, includeDeleted: String(includeDeleted) });
+export async function listRequests(apiBaseUrl: string, includeDeleted = true): Promise<ListRequestsResponse> {
+  const params = new URLSearchParams({ includeDeleted: String(includeDeleted) });
   const response = await fetch(`${apiBaseUrl}/requests?${params.toString()}`, {
     cache: "no-store",
     credentials: "include"

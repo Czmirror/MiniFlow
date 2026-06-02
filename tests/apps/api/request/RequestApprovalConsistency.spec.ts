@@ -6,7 +6,6 @@ import type {
   NormalizedListRequestsInput,
   RequestRepository
 } from "../../../../apps/api/src/application/ports/RequestRepository";
-import { StateConflictError } from "../../../../apps/api/src/application/errors/StateConflictError";
 import { AuthorizationError } from "../../../../apps/api/src/application/errors/AuthorizationError";
 import { Approval } from "../../../../apps/api/src/domain/request/Approval";
 import { Request } from "../../../../apps/api/src/domain/request/Request";
@@ -50,7 +49,7 @@ describe("apps/api Request approval consistency", () => {
     expect(request.approvals).toHaveLength(1);
   });
 
-  it("rejects duplicate decisions by the same actor before appending approval history", () => {
+  it("allows the same approver to decide again after resubmission", () => {
     const request = Request.rehydrate({
       ...baseRequestParams(),
       status: "Pending",
@@ -65,13 +64,14 @@ describe("apps/api Request approval consistency", () => {
       ]
     });
 
-    expect(() =>
-      request.approve({
-        actorId: "approver-1",
-        approvalId: "approval-2",
-        now: new Date("2026-05-17T02:00:00.000Z")
-      })
-    ).toThrow(StateConflictError);
+    const result = request.reject({
+      actorId: "approver-1",
+      approvalId: "approval-2",
+      now: new Date("2026-05-17T02:00:00.000Z")
+    });
+
+    expect(result.request.status).toBe("Rejected");
+    expect(result.request.approvals).toHaveLength(2);
   });
 
   it("rejects invalid Approved history states", () => {
@@ -122,7 +122,7 @@ describe("apps/api Request approval consistency", () => {
 });
 
 describe("apps/api approval use cases", () => {
-  it("stops duplicate approve decisions before repository approval persistence", async () => {
+  it("allows the same approver to decide again in a later submission round", async () => {
     const repository = new InMemoryRequestRepository();
     repository.seed(
       Request.rehydrate({
@@ -140,10 +140,15 @@ describe("apps/api approval use cases", () => {
       })
     );
 
-    await expect(
-      approveRequest(repository, { id: "request-1", actorId: "approver-1", actorRole: "Approver" })
-    ).rejects.toBeInstanceOf(StateConflictError);
-    expect(repository.approveCalled).toBe(0);
+    const approved = await approveRequest(repository, {
+      id: "request-1",
+      actorId: "approver-1",
+      actorRole: "Approver"
+    });
+
+    expect(approved?.status).toBe("Approved");
+    expect(approved?.approvals).toHaveLength(2);
+    expect(repository.approveCalled).toBe(1);
   });
 
   it("rejects self approval even when actor has approver role", async () => {
@@ -207,16 +212,15 @@ describe("apps/api approval use cases", () => {
 });
 
 describe("apps/api Prisma approval persistence contract", () => {
-  it("declares a unique requestId + actedBy constraint in schema and migration", () => {
+  it("does not enforce one approval decision per actor across resubmission rounds", () => {
     const schema = readFileSync("apps/api/prisma/schema.prisma", "utf8");
     const migration = readFileSync(
-      "apps/api/prisma/migrations/20260517000000_add_unique_approval_actor_per_request/migration.sql",
+      "apps/api/prisma/migrations/20260530000000_allow_approval_actor_redecisions/migration.sql",
       "utf8"
     );
 
-    expect(schema).toContain("@@unique([requestId, actedBy])");
-    expect(migration).toContain('CREATE UNIQUE INDEX "approvals_requestId_actedBy_key"');
-    expect(migration).toContain('"requestId", "actedBy"');
+    expect(schema).not.toContain("@@unique([requestId, actedBy])");
+    expect(migration).toContain('DROP INDEX IF EXISTS "approvals_requestId_actedBy_key"');
   });
 
   it("persists request status update and approval insert in one transaction", async () => {

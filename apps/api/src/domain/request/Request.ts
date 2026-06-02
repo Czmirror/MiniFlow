@@ -139,7 +139,6 @@ export class Request {
     approval: Approval;
   } {
     this.assertStatus("Pending", "approve is only allowed in Pending");
-    this.assertNoDuplicateDecision(input.actorId);
 
     const approval = new Approval({
       id: input.approvalId,
@@ -172,7 +171,6 @@ export class Request {
     approval: Approval;
   } {
     this.assertStatus("Pending", "reject is only allowed in Pending");
-    this.assertNoDuplicateDecision(input.actorId);
 
     const approval = new Approval({
       id: input.approvalId,
@@ -285,10 +283,4 @@ export class Request {
     }
   }
 
-  private assertNoDuplicateDecision(actorId: string): void {
-    const hasDecision = this.approvals.some((approval) => approval.actedBy === actorId);
-    if (hasDecision) {
-      throw new StateConflictError("duplicate decision");
-    }
-  }
 }

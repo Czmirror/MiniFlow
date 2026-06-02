@@ -53,6 +53,15 @@ describe("apps/api account and user use cases", () => {
     ).rejects.toBeInstanceOf(InputValidationError);
   });
 
+  it("normalizes legacy blank team ids to the default team", async () => {
+    const repository = new InMemoryUserRepository();
+    repository.seed(await createUser({ id: "user-1", email: "user@example.com", teamId: " " }));
+
+    const user = await loginUser(repository, { email: "user@example.com", password: "password1234" });
+
+    expect(user.teamId).toBe("team-1");
+  });
+
   it("updates user management fields", async () => {
     const repository = new InMemoryUserRepository();
     repository.seed(await createUser({ id: "user-1", email: "user@example.com" }));

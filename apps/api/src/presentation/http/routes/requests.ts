@@ -25,7 +25,6 @@ export function registerRequestRoutes(server: FastifyInstance, prisma: PrismaCli
 
   server.post("/requests", { preHandler: [server.requireAuth, server.requireCsrf] }, async (request, reply) => {
     const body = (request.body ?? {}) as Partial<{
-      teamId: string;
       title: string;
       body: string;
     }>;
@@ -37,7 +36,7 @@ export function registerRequestRoutes(server: FastifyInstance, prisma: PrismaCli
 
       const createdRequest = await createRequest(repository, {
         actorId: request.currentUser.id,
-        teamId: body.teamId ?? "",
+        teamId: request.currentUser.teamId,
         title: body.title ?? "",
         body: body.body ?? ""
       });
@@ -48,20 +47,22 @@ export function registerRequestRoutes(server: FastifyInstance, prisma: PrismaCli
     }
   });
 
-  server.get("/requests/:id", async (request, reply) => {
+  server.get("/requests/:id", { preHandler: [server.requireAuth] }, async (request, reply) => {
     const params = request.params as { id?: string };
 
     try {
-      const foundRequest = await getRequestById(repository, params.id ?? "");
+      if (!request.currentUser) {
+        return reply.code(401).send(notAuthorizedError());
+      }
+
+      const foundRequest = await ensureRequestBelongsToCurrentTeam(
+        repository,
+        params.id ?? "",
+        request.currentUser.teamId
+      );
 
       if (!foundRequest) {
-        return reply.code(404).send({
-          error: {
-            code: "NOT_FOUND",
-            message: "request not found",
-            status: 404
-          }
-        });
+        return reply.code(404).send(notFoundError());
       }
 
       return reply.send(toRequestDetailDto(foundRequest));
@@ -70,9 +71,8 @@ export function registerRequestRoutes(server: FastifyInstance, prisma: PrismaCli
     }
   });
 
-  server.get("/requests", async (request, reply) => {
+  server.get("/requests", { preHandler: [server.requireAuth] }, async (request, reply) => {
     const query = request.query as Partial<{
-      teamId: string;
       status: ListRequestsInput["status"];
       includeDeleted: string;
       from: string;
@@ -82,8 +82,12 @@ export function registerRequestRoutes(server: FastifyInstance, prisma: PrismaCli
     }>;
 
     try {
+      if (!request.currentUser) {
+        return reply.code(401).send(notAuthorizedError());
+      }
+
       const response = await listRequests(repository, {
-        teamId: query.teamId ?? "",
+        teamId: request.currentUser.teamId,
         status: query.status,
         includeDeleted: query.includeDeleted === "true",
         from: query.from,
@@ -111,6 +115,20 @@ export function registerRequestRoutes(server: FastifyInstance, prisma: PrismaCli
     }>;
 
     try {
+      if (!request.currentUser) {
+        return reply.code(401).send(notAuthorizedError());
+      }
+
+      const currentRequest = await ensureRequestBelongsToCurrentTeam(
+        repository,
+        params.id ?? "",
+        request.currentUser.teamId
+      );
+      if (!currentRequest) {
+        return reply.code(404).send(notFoundError());
+      }
+      ensureRequesterOrAdmin(currentRequest, request.currentUser);
+
       const updatedRequest = await updateRequest(repository, {
         id: params.id ?? "",
         title: body.title,
@@ -118,13 +136,7 @@ export function registerRequestRoutes(server: FastifyInstance, prisma: PrismaCli
       });
 
       if (!updatedRequest) {
-        return reply.code(404).send({
-          error: {
-            code: "NOT_FOUND",
-            message: "request not found",
-            status: 404
-          }
-        });
+        return reply.code(404).send(notFoundError());
       }
 
       return reply.send(toRequestDto(updatedRequest));
@@ -141,6 +153,15 @@ export function registerRequestRoutes(server: FastifyInstance, prisma: PrismaCli
         return reply.code(401).send(notAuthorizedError());
       }
 
+      const currentRequest = await ensureRequestBelongsToCurrentTeam(
+        repository,
+        params.id ?? "",
+        request.currentUser.teamId
+      );
+      if (!currentRequest) {
+        return reply.code(404).send(notFoundError());
+      }
+
       const submittedRequest = await submitRequest(repository, {
         id: params.id ?? "",
         actorId: request.currentUser.id,
@@ -148,13 +169,7 @@ export function registerRequestRoutes(server: FastifyInstance, prisma: PrismaCli
       });
 
       if (!submittedRequest) {
-        return reply.code(404).send({
-          error: {
-            code: "NOT_FOUND",
-            message: "request not found",
-            status: 404
-          }
-        });
+        return reply.code(404).send(notFoundError());
       }
 
       return reply.send(toRequestDto(submittedRequest));
@@ -170,6 +185,15 @@ export function registerRequestRoutes(server: FastifyInstance, prisma: PrismaCli
     try {
       if (!request.currentUser) {
         return reply.code(401).send(notAuthorizedError());
+      }
+
+      const currentRequest = await ensureRequestBelongsToCurrentTeam(
+        repository,
+        params.id ?? "",
+        request.currentUser.teamId
+      );
+      if (!currentRequest) {
+        return reply.code(404).send(notFoundError());
       }
 
       const approvedRequest = await approveRequest(repository, {
@@ -198,6 +222,15 @@ export function registerRequestRoutes(server: FastifyInstance, prisma: PrismaCli
         return reply.code(401).send(notAuthorizedError());
       }
 
+      const currentRequest = await ensureRequestBelongsToCurrentTeam(
+        repository,
+        params.id ?? "",
+        request.currentUser.teamId
+      );
+      if (!currentRequest) {
+        return reply.code(404).send(notFoundError());
+      }
+
       const rejectedRequest = await rejectRequest(repository, {
         id: params.id ?? "",
         actorId: request.currentUser.id,
@@ -219,6 +252,20 @@ export function registerRequestRoutes(server: FastifyInstance, prisma: PrismaCli
     const params = request.params as { id?: string };
 
     try {
+      if (!request.currentUser) {
+        return reply.code(401).send(notAuthorizedError());
+      }
+
+      const currentRequest = await ensureRequestBelongsToCurrentTeam(
+        repository,
+        params.id ?? "",
+        request.currentUser.teamId
+      );
+      if (!currentRequest) {
+        return reply.code(404).send(notFoundError());
+      }
+      ensureRequesterOrAdmin(currentRequest, request.currentUser);
+
       const revisedRequest = await reviseRequest(repository, params.id ?? "");
 
       if (!revisedRequest) {
@@ -235,6 +282,20 @@ export function registerRequestRoutes(server: FastifyInstance, prisma: PrismaCli
     const params = request.params as { id?: string };
 
     try {
+      if (!request.currentUser) {
+        return reply.code(401).send(notAuthorizedError());
+      }
+
+      const currentRequest = await ensureRequestBelongsToCurrentTeam(
+        repository,
+        params.id ?? "",
+        request.currentUser.teamId
+      );
+      if (!currentRequest) {
+        return reply.code(404).send(notFoundError());
+      }
+      ensureRequesterOrAdmin(currentRequest, request.currentUser);
+
       const deletedRequest = await deleteRequest(repository, params.id ?? "");
 
       if (!deletedRequest) {
@@ -246,6 +307,36 @@ export function registerRequestRoutes(server: FastifyInstance, prisma: PrismaCli
       return handleRouteError(request, reply, error, "failed to delete request");
     }
   });
+}
+
+async function ensureRequestBelongsToCurrentTeam(
+  repository: PrismaRequestRepository,
+  id: string,
+  currentTeamId: string
+) {
+  const foundRequest = await getRequestById(repository, id);
+  if (!foundRequest) {
+    return null;
+  }
+
+  if (foundRequest.teamId !== currentTeamId) {
+    throw new AuthorizationError("request belongs to another team");
+  }
+
+  return foundRequest;
+}
+
+function ensureRequesterOrAdmin(
+  foundRequest: Awaited<ReturnType<typeof getRequestById>>,
+  currentUser: NonNullable<FastifyRequest["currentUser"]>
+) {
+  if (!foundRequest) {
+    return;
+  }
+
+  if (foundRequest.createdBy !== currentUser.id && currentUser.role !== "Admin") {
+    throw new AuthorizationError("request edits are only allowed by requester or admin");
+  }
 }
 
 function handleRouteError(

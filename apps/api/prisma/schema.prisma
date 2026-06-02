@@ -62,6 +62,5 @@ model ApprovalRecord {
   request    RequestRecord      @relation(fields: [requestId], references: [id], onDelete: Cascade)
 
   @@index([requestId, createdAt])
-  @@unique([requestId, actedBy])
   @@map("approvals")
 }

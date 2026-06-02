@@ -36,7 +36,7 @@ export function registerAuthRoutes(server: FastifyInstance, prisma: PrismaClient
         password: body.password ?? "",
         displayName: body.displayName,
         language: body.language,
-        teamId: body.teamId,
+        teamId: "team-1",
         role: "Applicant"
       });
 
@@ -137,8 +137,12 @@ export function registerAuthRoutes(server: FastifyInstance, prisma: PrismaClient
     }
   });
 
-  server.get("/users", { preHandler: [server.requireAuth] }, async (_request, reply) => {
+  server.get("/users", { preHandler: [server.requireAuth] }, async (request, reply) => {
     try {
+      if (!request.currentUser || request.currentUser.role !== "Admin") {
+        throw new AuthorizationError("user management requires admin role");
+      }
+
       const users = await listUsers(repository);
       return reply.send({
         items: users.map(toUserManagementDto)

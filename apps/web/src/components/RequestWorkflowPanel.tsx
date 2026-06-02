@@ -18,7 +18,7 @@ const defaultTeamId = "team-1";
  * the current workflow can be inspected in one place while the UI is still MVP-sized.
  */
 export function RequestWorkflowPanel() {
-  const [teamId, setTeamId] = useState(defaultTeamId);
+  const [teamId] = useState(defaultTeamId);
   const [requests, setRequests] = useState<RequestDto[]>([]);
   const [selectedId, setSelectedId] = useState<string>("");
   const [selectedRequest, setSelectedRequest] = useState<RequestDto | null>(null);
@@ -65,7 +65,7 @@ export function RequestWorkflowPanel() {
     setError(null);
 
     try {
-      const response = await listRequests(apiBaseUrl, teamId, true);
+      const response = await listRequests(apiBaseUrl, true);
       setRequests(response.items);
 
       if (!selectedId && response.items[0]) {
@@ -143,7 +143,7 @@ export function RequestWorkflowPanel() {
     setSelectedId(request.id);
     const detail = await getRequest(apiBaseUrl, request.id);
     setApprovals(detail.approvals);
-    const response = await listRequests(apiBaseUrl, teamId, true);
+    const response = await listRequests(apiBaseUrl, true);
     setRequests(response.items);
   }
 
@@ -155,7 +155,7 @@ export function RequestWorkflowPanel() {
         <label style={{ display: "grid", gap: "0.35rem" }}>
           <span>Team ID</span>
           <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
-            <input value={teamId} onChange={(event) => setTeamId(event.target.value)} style={inputStyle} />
+            <input value={teamId} readOnly style={inputStyle} />
             <button type="button" onClick={() => void refreshList()} disabled={loading} style={secondaryButtonStyle}>
               {loading ? "Loading..." : "GET /requests 実行"}
             </button>
