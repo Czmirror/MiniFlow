@@ -20,6 +20,7 @@ import {
   updateAccount,
   updateUser
 } from "../lib/authApi";
+import { ApiError, clearCsrfToken } from "../lib/apiTransport";
 import { createRequest, getRequest, listRequests, transitionRequest, updateRequest } from "../lib/requestApi";
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
@@ -316,6 +317,30 @@ export function MiniFlowApp() {
     return requests.filter((request) => request.status === "Pending" && request.createdBy !== currentUser.id);
   }, [currentUser, requests]);
 
+  // サーバーが認証を拒否した場合も、再読込なしで再ログインできる状態へ戻す。
+  function clearSession() {
+    clearCsrfToken();
+    setCurrentUser(null);
+    setPassword("");
+    setRequests([]);
+    setUsers([]);
+    setSelectedRequest(null);
+    setApprovals([]);
+    setView("dashboard");
+    setTeamId(defaultTeamId);
+    setCreateForm(initialCreateForm);
+    setAccountForm({ displayName: "", language: "ja" });
+    setPasswordForm(initialPasswordForm);
+    setUserForm(initialUserForm);
+    setDecisionReason("");
+    setMessage(null);
+  }
+
+  function handleApiError(caughtError: unknown) {
+    if (caughtError instanceof ApiError && caughtError.status === 401) clearSession();
+    setError(toErrorMessage(caughtError));
+  }
+
   async function initialize() {
     setLoading(true);
     setError(null);
@@ -331,7 +356,7 @@ export function MiniFlowApp() {
         }
       }
     } catch (caughtError) {
-      setError(toErrorMessage(caughtError));
+      handleApiError(caughtError);
     } finally {
       setLoading(false);
     }
@@ -354,7 +379,7 @@ export function MiniFlowApp() {
       setView("dashboard");
       setMessage(labels.loginSuccess);
     } catch (caughtError) {
-      setError(toErrorMessage(caughtError));
+      handleApiError(caughtError);
     } finally {
       setLoading(false);
     }
@@ -367,14 +392,9 @@ export function MiniFlowApp() {
 
     try {
       await logout(apiBaseUrl);
-      setCurrentUser(null);
-      setRequests([]);
-      setUsers([]);
-      setSelectedRequest(null);
-      setApprovals([]);
-      setView("dashboard");
+      clearSession();
     } catch (caughtError) {
-      setError(toErrorMessage(caughtError));
+      handleApiError(caughtError);
     } finally {
       setLoading(false);
     }
@@ -419,7 +439,7 @@ export function MiniFlowApp() {
       setCreateForm({ ...initialCreateForm, teamId: created.teamId });
       setMessage(submitAfterCreate ? labels.submitSuccess : labels.createSuccess);
     } catch (caughtError) {
-      setError(toErrorMessage(caughtError));
+      handleApiError(caughtError);
     } finally {
       setLoading(false);
     }
@@ -441,7 +461,7 @@ export function MiniFlowApp() {
     try {
       await openDetail(id);
     } catch (caughtError) {
-      setError(toErrorMessage(caughtError));
+      handleApiError(caughtError);
     } finally {
       setLoading(false);
     }
@@ -467,7 +487,7 @@ export function MiniFlowApp() {
       await openDetail(changed.id);
       setMessage(action === "approve" ? labels.approveSuccess : labels.rejectSuccess);
     } catch (caughtError) {
-      setError(toErrorMessage(caughtError));
+      handleApiError(caughtError);
     } finally {
       setLoading(false);
     }
@@ -491,7 +511,7 @@ export function MiniFlowApp() {
       await openDetail(changed.id);
       setMessage(labels.submitSuccess);
     } catch (caughtError) {
-      setError(toErrorMessage(caughtError));
+      handleApiError(caughtError);
     } finally {
       setLoading(false);
     }
@@ -512,7 +532,7 @@ export function MiniFlowApp() {
       await openDetail(changed.id);
       setMessage(labels.reviseSuccess);
     } catch (caughtError) {
-      setError(toErrorMessage(caughtError));
+      handleApiError(caughtError);
     } finally {
       setLoading(false);
     }
@@ -533,7 +553,7 @@ export function MiniFlowApp() {
       await openDetail(changed.id);
       setMessage(labels.updateSuccess);
     } catch (caughtError) {
-      setError(toErrorMessage(caughtError));
+      handleApiError(caughtError);
     } finally {
       setLoading(false);
     }
@@ -554,7 +574,7 @@ export function MiniFlowApp() {
       applyUserSettings(user);
       setMessage(messages[user.language].accountUpdated);
     } catch (caughtError) {
-      setError(toErrorMessage(caughtError));
+      handleApiError(caughtError);
     } finally {
       setLoading(false);
     }
@@ -568,17 +588,10 @@ export function MiniFlowApp() {
 
     try {
       await changePassword(apiBaseUrl, passwordForm);
-      setCurrentUser(null);
-      setPassword("");
-      setRequests([]);
-      setUsers([]);
-      setSelectedRequest(null);
-      setApprovals([]);
-      setView("dashboard");
-      setPasswordForm(initialPasswordForm);
+      clearSession();
       setMessage(labels.passwordChanged);
     } catch (caughtError) {
-      setError(toErrorMessage(caughtError));
+      handleApiError(caughtError);
     } finally {
       setLoading(false);
     }
@@ -603,7 +616,7 @@ export function MiniFlowApp() {
       await refreshUsers();
       setMessage(labels.userCreated);
     } catch (caughtError) {
-      setError(toErrorMessage(caughtError));
+      handleApiError(caughtError);
     } finally {
       setLoading(false);
     }
@@ -628,7 +641,7 @@ export function MiniFlowApp() {
       await refreshUsers();
       setMessage(labels.userUpdated);
     } catch (caughtError) {
-      setError(toErrorMessage(caughtError));
+      handleApiError(caughtError);
     } finally {
       setLoading(false);
     }

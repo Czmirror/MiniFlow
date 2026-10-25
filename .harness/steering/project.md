@@ -122,3 +122,4 @@ Do NOT implement:
 - JWTは8時間、password変更は認証世代を増やして全失効。設定・適用・初期Admin作成は `docs/runbook.md`。
 - sessionVersion migrationはファイル作成のみ。実DBへの適用・実ユーザー作成は未実施。
 - 第2段階の仕様・試験・記録は `docs/API.md`、`docs/tests/`、`docs/work/auth-input-boundaries/`。
+- `apps/web/src/lib/apiTransport.ts`: WebのHTTP失敗statusとCSRFキャッシュを保持する。401を受けた画面は認証stateを破棄してログインへ戻る。

@@ -43,3 +43,15 @@ AC1〜AC9の結果と対応testはdocs/tests/functional・unit/auth-input-bounda
 独立AIレビューで、page単体が安全整数でも計算後のoffsetが精度を失う組合せの指摘があった。usecaseでoffsetの安全整数検証を追加し、本番HTTPで巨大pageとlimitの組合せを拒否する回帰ケースとAPI契約を更新した。reviewerは修正を確認し、最終報告は「指摘なし」（未解決指摘なし）。
 実DBでのskip型上限は未確認であり、根拠のない上限は追加していない。
 人間は計画と重要仕様・通常PR作成を承認済み。最終差分の人間レビューと未実施の実動検証は未確認で、PRはHumanReview待ちとする。
+
+## PR #5の401復帰修正（2026-10-26）
+
+レビューコメント `discussion_r4371540836` を確認した。期限切れの401をWebが通常エラーとして処理し、ログアウト要求も401になると認証stateが残る不具合は妥当だった。
+`apiTransport.ts`へHTTP応答処理とCSRF保持を集約した。401は本文の解析失敗にもかかわらずCSRFを破棄し、HTTP status付きの `ApiError` として画面へ渡す。MiniFlowAppは各操作のcatchで401だけを判定し、ユーザー・一覧・詳細・管理者入力・password入力を消してログインへ戻す。403と通信失敗は認証失効として扱わない。成功したlogout/password変更も同じ画面初期化へ委ねる。
+
+`SessionExpiry.spec.ts`の9件と型検査が成功。架空のメモリAPI43101とNext.js43100を使い、API側で認証世代を増やしたあと、実ブラウザのアカウント保存が401→ログイン画面→再ログイン200へ戻ることを確認した。再度失効させ、Logoutの401でも同じ復帰を確認した。再ログイン後のアカウント保存は200で、新しいCSRFを使った更新も成功。証拠はGit対象外の `session-expired-login.png` と `session-relogin-saved.png`。
+8時間の実時間待ちは行わず、同じ401を返す認証世代不一致で確認した。JWTの期限切れ判定自体は既存HTTPテストで確認済み。実DB・本物の秘密を使わず、ブラウザのpassword変更は今回も操作していない。
+仮APIの標準入力が最初の起動では閉じていたため、そのプロセスだけを停止して対話可能な形で再起動した。初回ページ表示のコンパイル待ちによるナビゲーションtimeout後は、表示済みタブを再取得して検証を完了した。検証用サーバーとタブは停止・閉鎖済み。
+
+今回の差分に対する全体Runnerは、format・型検査・189件のtest・build・secretsが成功し、実行前後のfingerprintが一致した（Git対象外 `pr5-session-validation.json`）。lintは既存未整備のためskip。Runner後の変更は末尾空行の除去とこの結果記録のみで、テキスト検査とdiff checkを再実行した。
+自己レビューではSecurity/Data/Tests/Docs and commentsを照合した。共通HTTP処理の正本はapiTransportに1つだけで、旧parser/cacheは削除済み。画面のstate初期化はMiniFlowAppのclearSessionに集約し、既存の各catchから委譲する。全体UI分割には拡大していない。独立AIレビューはこの修正差分について「指摘なし」。追加の未解決指摘はない。新しいAPI・DB・依存変更なし。仕様は承認済み再ログインフローのバグ修正のため追加仕様書を作らず、計画・試験・実施記録を更新した。人間の最終レビューは未実施（HumanReview待ち）。

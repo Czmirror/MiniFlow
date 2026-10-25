@@ -1,16 +1,16 @@
+/** 認証・アカウント・管理者APIを呼ぶ。HTTP応答とCSRFの保持はapiTransportへ委ねる。 */
 import type {
   AuthMeDto,
   AuthUserDto,
   ChangePasswordInput,
   CreateUserInput,
-  CsrfTokenDto,
   LoginInput,
   UpdateAccountInput,
   UpdateUserInput,
   UserManagementDto
 } from "@miniflow/shared";
 
-let csrfTokenCache: string | null = null;
+import { clearCsrfToken, csrfHeaders, parseResponse } from "./apiTransport";
 
 /**
  * Auth transport is centralized here so UI components do not manage cookie or csrf details.
@@ -24,8 +24,8 @@ export async function login(apiBaseUrl: string, input: LoginInput): Promise<Auth
   });
 
   const payload = await parseResponse<{ user: AuthUserDto }>(response);
-  const csrf = await fetchCsrfToken(apiBaseUrl);
-  csrfTokenCache = csrf.csrfToken;
+  clearCsrfToken();
+  await csrfHeaders(apiBaseUrl);
   return payload.user;
 }
 
@@ -41,7 +41,7 @@ export async function logout(apiBaseUrl: string): Promise<void> {
     await parseResponse(response);
   }
 
-  csrfTokenCache = null;
+  clearCsrfToken();
 }
 
 export async function fetchCurrentUser(apiBaseUrl: string): Promise<AuthMeDto | null> {
@@ -51,6 +51,7 @@ export async function fetchCurrentUser(apiBaseUrl: string): Promise<AuthMeDto | 
   });
 
   if (response.status === 401) {
+    clearCsrfToken();
     return null;
   }
 
@@ -85,7 +86,7 @@ export async function changePassword(apiBaseUrl: string, input: ChangePasswordIn
   });
 
   const user = await parseResponse<AuthUserDto>(response);
-  csrfTokenCache = null;
+  clearCsrfToken();
   return user;
 }
 
@@ -126,33 +127,4 @@ export async function updateUser(apiBaseUrl: string, id: string, input: UpdateUs
   });
 
   return parseResponse<UserManagementDto>(response);
-}
-
-export async function csrfHeaders(apiBaseUrl: string): Promise<Record<string, string>> {
-  if (!csrfTokenCache) {
-    const csrf = await fetchCsrfToken(apiBaseUrl);
-    csrfTokenCache = csrf.csrfToken;
-  }
-
-  return {
-    "x-csrf-token": csrfTokenCache
-  };
-}
-
-async function fetchCsrfToken(apiBaseUrl: string): Promise<CsrfTokenDto> {
-  const response = await fetch(`${apiBaseUrl}/auth/csrf`, {
-    credentials: "include",
-    cache: "no-store"
-  });
-
-  return parseResponse<CsrfTokenDto>(response);
-}
-
-async function parseResponse<T>(response: Response): Promise<T> {
-  if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as { error?: { message?: string } } | null;
-    throw new Error(payload?.error?.message ?? `API request failed with status ${response.status}`);
-  }
-
-  return (await response.json()) as T;
 }

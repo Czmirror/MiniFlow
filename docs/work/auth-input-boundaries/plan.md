@@ -92,3 +92,24 @@ rollbackはコードcommitのrevertを基本とし、追加したDB列は無害�
 仕様の正本はdocs/API.md、試験仕様はdocs/tests/functional・unitへ統合した。実装と検証を進行中。migrationの実DB適用と実ユーザー作成は行わない。
 
 2026-10-26の追加確認で、ユーザーは「通常PRまで作成する」を選択した。実装・検証・独立レビュー後のpush/通常PR作成まで承認済み。実DB適用は行わない。
+
+## PR #5コメント対応（2026-10-26）
+
+対象は `b10746b`、開始時clean、fetch後に同名remoteと一致。レビュー指摘は、401後にWebが認証状態を保持し、ログアウトでも戻れない不具合。承認済みの再ログインフローを成立させる修正として同じ範囲で対応する。新しい業務仕様・API・DB変更はない。
+HTTP失敗のstatusとCSRF保持は新しい `apiTransport.ts` へ集約し、authApi/requestApiの重複parserと旧cacheを置換する。画面のstateはMiniFlowAppが所有し、全操作のcatchで401だけを認証失効として初期化する。403/通信失敗は画面を保持する。ログアウト・password変更成功も同じ初期化へ委ねる。
+
+```mermaid
+sequenceDiagram
+  participant UI as MiniFlowApp
+  participant HTTP as API transport
+  participant API as API
+  UI->>HTTP: 一覧・更新・ログアウト
+  HTTP->>API: cookie認証で要求
+  API-->>HTTP: 401
+  HTTP->>HTTP: CSRFキャッシュ破棄
+  HTTP-->>UI: status付き例外
+  UI->>UI: 認証・一覧・入力state初期化
+  UI-->>UI: ログイン画面
+```
+
+APIクライアントの401各経路・CSRF取得401・403・通信失敗をVitestで確認し、仮APIの認証世代を外部で失効させた実ブラウザで、操作401後とログアウト401後に再ログインできることを確認する。DBと本物の秘密は使わない。独立レビュー後、承認済みの通常PRへ追加pushする。外部コメント返信は行わない。
