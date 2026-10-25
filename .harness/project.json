@@ -1,0 +1,102 @@
+{
+  "version": 1,
+  "name": "MiniFlow",
+  "stacks": [
+    {
+      "path": "apps/web",
+      "rules": [
+        "web",
+        "typescript",
+        "nextjs"
+      ]
+    },
+    {
+      "path": "apps/api",
+      "rules": [
+        "typescript",
+        "sql"
+      ]
+    },
+    {
+      "path": "packages/shared",
+      "rules": [
+        "typescript"
+      ]
+    },
+    {
+      "path": "tests",
+      "rules": [
+        "typescript"
+      ]
+    }
+  ],
+  "checks": [
+    {
+      "id": "lint",
+      "stage": "lint",
+      "required": false,
+      "skipReason": "既存lintコマンドは未整備。今回の導入では追加しない。"
+    },
+    {
+      "id": "format",
+      "stage": "format",
+      "required": true,
+      "command": [
+        "node",
+        ".harness/upstream/scripts/check-text-style.mjs",
+        "--root",
+        "."
+      ],
+      "cwd": ".",
+      "timeoutMs": 240000
+    },
+    {
+      "id": "types",
+      "stage": "typecheck",
+      "required": true,
+      "command": [
+        "pnpm",
+        "typecheck"
+      ],
+      "cwd": ".",
+      "timeoutMs": 240000
+    },
+    {
+      "id": "tests",
+      "stage": "test",
+      "required": true,
+      "command": [
+        "pnpm",
+        "exec",
+        "vitest",
+        "run"
+      ],
+      "cwd": ".",
+      "timeoutMs": 240000
+    },
+    {
+      "id": "build",
+      "stage": "build",
+      "required": true,
+      "command": [
+        "pnpm",
+        "build"
+      ],
+      "cwd": ".",
+      "timeoutMs": 240000
+    },
+    {
+      "id": "secrets",
+      "stage": "security",
+      "required": true,
+      "command": [
+        "node",
+        ".harness/upstream/scripts/check-secrets.mjs",
+        "--root",
+        "."
+      ],
+      "cwd": ".",
+      "timeoutMs": 240000
+    }
+  ]
+}

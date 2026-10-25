@@ -1,0 +1,3 @@
+[submodule ".harness/upstream"]
+	path = .harness/upstream
+	url = git@github.com:Czmirror/ai-dev-context.git
