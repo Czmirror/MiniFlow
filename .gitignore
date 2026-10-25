@@ -28,3 +28,4 @@ build/
 
 # AI
 .ai-context
+.harness/reports/
