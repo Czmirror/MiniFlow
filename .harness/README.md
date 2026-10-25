@@ -31,3 +31,7 @@ clone時はgit clone --recurse-submodulesを使用する。Node.js 22以上と�
 - 新規sessionでのルール発見・承認前停止の確認: 未実施（NOT RUN）。Runnerの結果とは区別する。
 
 検証結果（導入差分に対して2026-10-26実施）: pnpm typecheck成功、Vitest 7ファイル72件成功、pnpm build成功、Harnessのsecrets検査成功、git diff --check成功。Runner全体は既存文書のformat違反により失敗。AI自己レビューではhot.mdの本文移行・旧文書不変更・共通Harness不変更・参照先を照合した。人間の受け入れは未確認。
+
+## 検証基盤の整備後
+
+Node.js 22.12以上、pnpm 10.6.3を使用する。初期導入時の記録は上に保持し、第1段階の変更と最新の検証結果は [実施結果](../docs/work/harness-source-review/stage-1-result.md) に記録する。

@@ -1,5 +1,8 @@
 # IMPLEMENTATION GUIDE (for ClaudeCode)
 
+> この文書の構成案には初期プロトタイプの設計が残っています。現行ソースの正本は `apps/api/src/`、実行可能な検証は `pnpm test` と `pnpm typecheck` です。旧 `src/domain`・`src/application` と未完成のテスト雛形はテスト移行後に削除しました。現行テストへの対応は [申請テストの案内](templates/request-state-transition.md) を参照してください。業務仕様の不一致は第2段階以降で確認します。
+
+
 ## 0. 絶対的ルール
 - `Request.status` は source of truth（正）。`Approval` は履歴として保持する。
 - `revise()` は「同一Requestを `Draft` に戻す」。reviseの際に新規Request作成（versioning）は行わない。
@@ -195,7 +198,7 @@
 - テーブル駆動で `from`, `action`, `expectedStatus`, `expectedError` を持つデータセットを作る
 - `T07/T08` は Approvalの追加件数と actionType まで検証する
 - `T13` は `Approval` が増えないことを明示的に検証する
-- 雛形: `docs/templates/request-state-transition.spec.ts`
+- 雛形: `docs/templates/request-state-transition.md`
 
 ### 8.2 Applicationテスト
 - 各UseCaseで成功ケース1本

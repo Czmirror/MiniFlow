@@ -67,9 +67,7 @@
       "required": true,
       "command": [
         "pnpm",
-        "exec",
-        "vitest",
-        "run"
+        "test"
       ],
       "cwd": ".",
       "timeoutMs": 240000

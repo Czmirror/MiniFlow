@@ -1,7 +1,7 @@
 # ERD: MiniFlow (v0.1)
 
 ## 1. 目的
-MiniFlowのMVPで利用するデータモデルを定義する。  
+MiniFlowのMVPで利用するデータモデルを定義する。\
 本書は `PRD` / `NFR` / `IMPLEMENTATION_GUIDE` と整合するDB設計の基準とする。
 
 ## 2. 対象テーブル（MVP）
@@ -76,7 +76,7 @@ erDiagram
 - `team_id uuid not null references teams(id)`
 - `email text not null unique`
 - `display_name text not null`
-- `role text not null`  
+- `role text not null`\
   例: `member`, `approver`, `admin`
 - `created_at timestamptz not null default now()`
 - `updated_at timestamptz not null default now()`
@@ -87,7 +87,7 @@ erDiagram
 - `created_by uuid not null references users(id)`
 - `title text not null`
 - `body text not null`
-- `status text not null`  
+- `status text not null`\
   許容値: `Draft`, `Pending`, `Approved`, `Rejected`, `Deleted`
 - `deleted_at timestamptz null`
 - `created_at timestamptz not null default now()`
@@ -97,7 +97,7 @@ erDiagram
 - `id uuid PK`
 - `request_id uuid not null references requests(id)`
 - `acted_by uuid not null references users(id)`
-- `action_type text not null`  
+- `action_type text not null`\
   許容値: `Approved`, `Rejected`
 - `reason text null`
 - `created_at timestamptz not null default now()`

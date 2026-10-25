@@ -1,7 +1,7 @@
 # API Spec: MiniFlow (v0.1)
 
 ## 1. 目的
-MiniFlow MVPのHTTP API契約を定義する。  
+MiniFlow MVPのHTTP API契約を定義する。\
 本書は `PRD` / `NFR` / `ERD` / `IMPLEMENTATION_GUIDE` と整合する。
 
 ## 2. 共通仕様

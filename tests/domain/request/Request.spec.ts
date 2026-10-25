@@ -1,251 +1,122 @@
+/**
+ * 現行APIの不変なRequestを対象に、許可・禁止遷移と履歴保持を検証する。
+ * 認可はapplicationテストで確認し、ここでは時計を固定してDBなしで実行する。
+ */
 import { describe, expect, it } from "vitest";
-import { DomainError } from "../../../src/domain/errors/DomainError";
-import type { ApproverPolicy } from "../../../src/domain/policies/ApproverPolicy";
-import { Approval } from "../../../src/domain/request/Approval";
-import { Request } from "../../../src/domain/request/Request";
-import type { Status } from "../../../src/domain/request/Status";
+import { StateConflictError } from "../../../apps/api/src/application/errors/StateConflictError";
+import { Request } from "../../../apps/api/src/domain/request/Request";
+import type { Status } from "../../../apps/api/src/domain/request/Status";
+import { approverId, baseTime, requestInState } from "../../support/requests";
 
 type Action = "submit" | "approve" | "reject" | "revise" | "delete" | "update";
-
-type Case = {
-  id: string;
-  from: Status;
-  action: Action | Action[];
-  expectedStatus?: Status;
-  expectedError?: 403 | 409;
-  policyAllowed?: boolean;
-  expectedApprovalDelta?: number;
-  expectedLastActionType?: "Approved" | "Rejected";
-  preseedDuplicateActor?: boolean;
-};
-
-const terminalActions: Action[] = ["submit", "approve", "reject", "revise", "delete", "update"];
-
-const cases: Case[] = [
-  { id: "T01", from: "Draft", action: "submit", expectedStatus: "Pending" },
-  { id: "T02", from: "Draft", action: "delete", expectedStatus: "Deleted" },
-  { id: "T03", from: "Draft", action: "approve", expectedError: 409 },
-  { id: "T04", from: "Draft", action: "reject", expectedError: 409 },
-  { id: "T05", from: "Draft", action: "revise", expectedError: 409 },
-  { id: "T06", from: "Draft", action: "update", expectedStatus: "Draft" },
-  {
-    id: "T07",
-    from: "Pending",
-    action: "approve",
-    expectedStatus: "Approved",
-    expectedApprovalDelta: 1,
-    expectedLastActionType: "Approved"
-  },
-  {
-    id: "T08",
-    from: "Pending",
-    action: "reject",
-    expectedStatus: "Rejected",
-    expectedApprovalDelta: 1,
-    expectedLastActionType: "Rejected"
-  },
-  { id: "T09", from: "Pending", action: "submit", expectedError: 409 },
-  { id: "T10", from: "Pending", action: "revise", expectedError: 409 },
-  { id: "T11", from: "Pending", action: "delete", expectedError: 409 },
-  { id: "T12", from: "Pending", action: "update", expectedError: 409 },
-  {
-    id: "T13",
-    from: "Rejected",
-    action: "revise",
-    expectedStatus: "Draft",
-    expectedApprovalDelta: 0
-  },
-  { id: "T14", from: "Rejected", action: "delete", expectedStatus: "Deleted" },
-  { id: "T15", from: "Rejected", action: "submit", expectedError: 409 },
-  { id: "T16", from: "Rejected", action: "approve", expectedError: 409 },
-  { id: "T17", from: "Rejected", action: "reject", expectedError: 409 },
-  { id: "T18", from: "Rejected", action: "update", expectedError: 409 },
-  { id: "T19", from: "Approved", action: terminalActions, expectedError: 409 },
-  { id: "T20", from: "Deleted", action: terminalActions, expectedError: 409 },
-  { id: "T21", from: "Pending", action: "approve", expectedError: 403, policyAllowed: false },
-  { id: "T22", from: "Pending", action: "reject", expectedError: 403, policyAllowed: false },
-  { id: "T23", from: "Pending", action: "approve", expectedError: 409, preseedDuplicateActor: true }
+const actions: Action[] = ["submit", "approve", "reject", "revise", "delete", "update"];
+const transitions: Array<{ id: string; from: Status; action: Action; to: Status; approvalDelta: number }> = [
+  { id: "T01", from: "Draft", action: "submit", to: "Pending", approvalDelta: 0 },
+  { id: "T02", from: "Draft", action: "delete", to: "Deleted", approvalDelta: 0 },
+  { id: "T06", from: "Draft", action: "update", to: "Draft", approvalDelta: 0 },
+  { id: "T07", from: "Pending", action: "approve", to: "Approved", approvalDelta: 1 },
+  { id: "T08", from: "Pending", action: "reject", to: "Rejected", approvalDelta: 1 },
+  { id: "T13", from: "Rejected", action: "revise", to: "Draft", approvalDelta: 0 },
+  { id: "T14", from: "Rejected", action: "delete", to: "Deleted", approvalDelta: 0 }
+];
+const forbidden: Array<{ id: string; from: Status; actions: Action[] }> = [
+  { id: "T03-T05", from: "Draft", actions: ["approve", "reject", "revise"] },
+  { id: "T09-T12", from: "Pending", actions: ["submit", "revise", "delete", "update"] },
+  { id: "T15-T18", from: "Rejected", actions: ["submit", "approve", "reject", "update"] },
+  { id: "T19", from: "Approved", actions },
+  { id: "T20", from: "Deleted", actions }
 ];
 
-describe("Request state transition table T01-T23", () => {
-  it("creates request with default metadata", () => {
-    const request = new Request();
-
-    expect(request.teamId).toBe("team-1");
-    expect(request.createdBy).toBe("user-1");
-    expect(request.createdAt).toBeInstanceOf(Date);
-    expect(request.updatedAt).toBeInstanceOf(Date);
+describe("現行API Requestの状態遷移", () => {
+  it.each(transitions)("$id $from → $to ($action)", ({ from, action, to, approvalDelta }) => {
+    const before = requestInState(from);
+    const result = perform(before, action);
+    expect(result.status).toBe(to);
+    expect(result.approvals.length - before.approvals.length).toBe(approvalDelta);
+    expect(result.updatedAt).toEqual(baseTime);
+    expect(result.deletedAt).toEqual(to === "Deleted" ? baseTime : null);
+    if (action === "approve" || action === "reject") {
+      expect(result.approvals.at(-1)).toMatchObject({
+        requestId: before.id, actedBy: approverId,
+        actionType: action === "approve" ? "Approved" : "Rejected", reason: "decision", createdAt: baseTime
+      });
+    }
+    if (action === "update") {
+      expect(result.title).toBe("updated title");
+      expect(result.body).toBe("updated body");
+    }
+    expect(before.status).toBe(from);
+    expect(before.title).toBe("initial title");
+    expect(before.body).toBe("initial body");
   });
 
-  it("updates updatedAt when state changes", () => {
-    const request = new Request({
-      createdAt: new Date("2026-01-01T00:00:00.000Z"),
-      updatedAt: new Date("2026-01-01T00:00:00.000Z")
+  for (const row of forbidden) {
+    it.each(row.actions)(`${row.id} ${row.from}の%sを409で拒否し元の状態を保つ`, (action) => {
+      const before = requestInState(row.from);
+      const snapshot = { ...before, approvals: [...before.approvals] };
+      expect(() => perform(before, action)).toThrow(StateConflictError);
+      expect(() => perform(before, action)).toThrow(expect.objectContaining({ statusCode: 409 }));
+      expect({ ...before }).toEqual(snapshot);
     });
+  }
 
-    request.submit();
-
-    expect(request.updatedAt.getTime()).toBeGreaterThan(request.createdAt.getTime());
+  it("明示したメタデータを保持しDraftを作る", () => {
+    const request = requestInState();
+    expect(request).toMatchObject({ id: "request-1", teamId: "team-1", createdBy: "requester-1", status: "Draft", createdAt: baseTime, updatedAt: baseTime, deletedAt: null, approvals: [] });
   });
 
-  it("allows Pending with past Rejected history", () => {
-    const request = new Request({
-      status: "Pending",
-      approvals: [
-        new Approval({
-          requestId: "req-1",
-          actedBy: "actor-1",
-          actionType: "Rejected"
-        })
-      ]
-    });
-
-    expect(request.status).toBe("Pending");
-    expect(request.approvals).toHaveLength(1);
+  it("元の時刻を変えず遷移時刻を記録する", () => {
+    const draft = requestInState();
+    const later = new Date("2026-01-02T00:00:00.000Z");
+    const pending = draft.submit(later);
+    expect(pending.createdAt).toEqual(baseTime);
+    expect(pending.updatedAt).toEqual(later);
+    expect(draft.updatedAt).toEqual(baseTime);
   });
 
-  it("rejects Pending with Approved history", () => {
-    expect(() =>
-      new Request({
-        status: "Pending",
-        approvals: [
-          new Approval({
-            requestId: "req-1",
-            actedBy: "actor-1",
-            actionType: "Approved"
-          })
-        ]
-      })
-    ).toThrow(DomainError);
+  it("差し戻し履歴を保持して再提出し、同じ承認者が再決定できる（旧T23を置換）", () => {
+    const rejected = requestInState("Rejected");
+    const draft = rejected.revise({ now: baseTime });
+    const pending = draft.submit(baseTime);
+    const result = pending.approve({ actorId: approverId, approvalId: "second-decision", now: baseTime });
+    expect(draft.approvals).toEqual(rejected.approvals);
+    expect(pending.approvals).toEqual(rejected.approvals);
+    expect(result.request.status).toBe("Approved");
+    expect(result.request.approvals.map(a => a.actionType)).toEqual(["Rejected", "Approved"]);
+    expect(result.approval.id).toBe("second-decision");
   });
 
-  it("rejects Approved with multiple Approved histories", () => {
-    expect(() =>
-      new Request({
-        status: "Approved",
-        approvals: [
-          new Approval({
-            requestId: "req-1",
-            actedBy: "actor-1",
-            actionType: "Approved"
-          }),
-          new Approval({
-            requestId: "req-1",
-            actedBy: "actor-2",
-            actionType: "Approved"
-          })
-        ]
-      })
-    ).toThrow(DomainError);
+  it.each(["", "   "])("空の件名・本文を再構築時に拒否する: %j", value => {
+    const params = { ...requestInState() };
+    expect(() => Request.rehydrate({ ...params, title: value })).toThrow("title must not be empty");
+    expect(() => Request.rehydrate({ ...params, body: value })).toThrow("body must not be empty");
   });
 
-  it.each(cases)("$id", (c) => {
-    const actorId = "actor-1";
-    const policy = createPolicy(c.policyAllowed ?? true);
-    const request = createRequestInState(c.from);
-    const approvalBefore = request.approvals.length;
-    const actions = Array.isArray(c.action) ? c.action : [c.action];
+  it.each([
+    { status: "Deleted" as const, deletedAt: null },
+    { status: "Draft" as const, deletedAt: baseTime }
+  ])("status/deletedAtの不一致を拒否する: $status", params => {
+    expect(() => Request.rehydrate({ ...requestInState(), ...params })).toThrow("deleted status and deletedAt must stay in sync");
+  });
 
-    if (c.preseedDuplicateActor) {
-      request.approvals.push(
-        new Approval({
-          requestId: request.id,
-          actedBy: actorId,
-          actionType: "Rejected"
-        })
-      );
-    }
+  it("Approved履歴があるPendingと、承認履歴のないApprovedを拒否する", () => {
+    expect(() => Request.rehydrate({ ...requestInState("Approved"), status: "Pending" })).toThrow("non-approved status cannot contain approved records");
+    expect(() => Request.rehydrate({ ...requestInState("Pending"), status: "Approved" })).toThrow("approved status requires exactly one approved record");
+  });
 
-    if (c.expectedError) {
-      for (const action of actions) {
-        expectDomainError(() => performAction(request, action, actorId, policy), c.expectedError);
-      }
-      return;
-    }
-
-    for (const action of actions) {
-      performAction(request, action, actorId, policy);
-    }
-
-    if (c.expectedStatus) {
-      expect(request.status).toBe(c.expectedStatus);
-    }
-    if (typeof c.expectedApprovalDelta === "number") {
-      expect(request.approvals.length - approvalBefore).toBe(c.expectedApprovalDelta);
-    }
-    if (c.expectedLastActionType) {
-      expect(request.approvals.at(-1)?.actionType).toBe(c.expectedLastActionType);
-    }
-    if (c.id === "T02" || c.id === "T14") {
-      expect(request.deletedAt).toBeInstanceOf(Date);
-    }
-    if (c.id === "T13") {
-      expect(request.deletedAt).toBeNull();
-    }
+  it("複数のApproved履歴を拒否する", () => {
+    const approved = requestInState("Approved");
+    expect(() => Request.rehydrate({ ...approved, approvals: [...approved.approvals, ...approved.approvals] })).toThrow("approved status requires exactly one approved record");
   });
 });
 
-function createRequestInState(status: Status): Request {
-  const policy = createPolicy(true);
-  const actorId = "seed-actor";
-  const request = new Request({ id: "req-seed", title: "initial", body: "initial" });
-
-  switch (status) {
-    case "Draft":
-      return request;
-    case "Pending":
-      request.submit();
-      return request;
-    case "Approved":
-      request.submit();
-      request.approve(actorId, policy);
-      return request;
-    case "Rejected":
-      request.submit();
-      request.reject(actorId, policy);
-      return request;
-    case "Deleted":
-      request.delete(actorId);
-      return request;
-  }
-}
-
-function performAction(request: Request, action: Action, actorId: string, policy: ApproverPolicy): void {
+function perform(request: Request, action: Action): Request {
   switch (action) {
-    case "submit":
-      request.submit();
-      return;
-    case "approve":
-      request.approve(actorId, policy, "ok");
-      return;
-    case "reject":
-      request.reject(actorId, policy, "ng");
-      return;
-    case "revise":
-      request.revise(actorId);
-      return;
-    case "delete":
-      request.delete(actorId);
-      return;
-    case "update":
-      request.update({ title: "updated", body: "updated body" });
-      return;
-  }
-}
-
-function createPolicy(allowed: boolean): ApproverPolicy {
-  return {
-    canApprove: () => allowed,
-    canReject: () => allowed
-  };
-}
-
-function expectDomainError(fn: () => void, expectedStatusCode: 403 | 409): void {
-  try {
-    fn();
-    throw new Error("expected DomainError but function succeeded");
-  } catch (error) {
-    expect(error).toBeInstanceOf(DomainError);
-    expect((error as DomainError).statusCode).toBe(expectedStatusCode);
+    case "submit": return request.submit(baseTime);
+    case "approve": return request.approve({ actorId: approverId, approvalId: "approval-1", reason: "decision", now: baseTime }).request;
+    case "reject": return request.reject({ actorId: approverId, approvalId: "approval-1", reason: "decision", now: baseTime }).request;
+    case "revise": return request.revise({ now: baseTime });
+    case "delete": return request.delete({ now: baseTime });
+    case "update": return request.update({ title: " updated title ", body: " updated body ", now: baseTime });
   }
 }
