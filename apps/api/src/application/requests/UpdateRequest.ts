@@ -1,3 +1,4 @@
+/** Draftの編集内容を検証して保存する。空白の指定値はドメインの一般例外に達する前に400で拒否する。 */
 import { InputValidationError } from "../errors/InputValidationError.js";
 import type { RequestRepository } from "../ports/RequestRepository.js";
 
@@ -12,6 +13,12 @@ export async function updateRequest(repository: RequestRepository, input: Update
 
   if (typeof input.title !== "string" && typeof input.body !== "string") {
     throw new InputValidationError("title or body is required");
+  }
+
+  for (const [field, value] of [["title", input.title], ["body", input.body]] as const) {
+    if (value !== undefined && (typeof value !== "string" || !value.trim())) {
+      throw new InputValidationError(`${field} must not be empty`);
+    }
   }
 
   const request = await repository.findById(input.id.trim());

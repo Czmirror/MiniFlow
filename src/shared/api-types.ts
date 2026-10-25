@@ -4,6 +4,77 @@
  */
 
 export interface paths {
+    "/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Login user and set auth cookies
+         * @description JWT and cookies expire after 8 hours. JWT contains a session version. Legacy tokens without expiry/version are rejected.
+         */
+        post: operations["loginUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Logout user and clear cookies */
+        post: operations["logoutUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get current user */
+        get: operations["getCurrentUser"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/csrf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Issue CSRF token */
+        get: operations["getCsrfToken"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/requests": {
         parameters: {
             query?: never;
@@ -29,7 +100,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get request detail with approvals */
+        /** Get request detail */
         get: operations["getRequest"];
         put?: never;
         post?: never;
@@ -125,6 +196,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/account": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update own profile; omitted fields remain unchanged */
+        patch: operations["updateAccount"];
+        trace?: never;
+    };
+    "/account/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Change password and invalidate all sessions; clear cookies */
+        post: operations["changePassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin only: list users */
+        get: operations["listUsers"];
+        put?: never;
+        /** Admin only: create user */
+        post: operations["createUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Admin only: update user assignment and profile */
+        patch: operations["updateUser"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -137,7 +277,7 @@ export interface components {
         ApprovalActionType: "Approved" | "Rejected";
         Request: {
             id: components["schemas"]["Uuid"];
-            teamId: components["schemas"]["Uuid"];
+            teamId: string;
             title: string;
             body: string;
             status: components["schemas"]["RequestStatus"];
@@ -158,6 +298,35 @@ export interface components {
             /** Format: date-time */
             createdAt: string;
         };
+        RequestDetail: {
+            request: components["schemas"]["Request"];
+            approvals: components["schemas"]["Approval"][];
+        };
+        AuthUser: {
+            id: components["schemas"]["Uuid"];
+            /** Format: email */
+            email: string;
+            displayName: string | null;
+            /** @enum {string} */
+            language: "ja" | "en";
+            teamId: string;
+            /** @enum {string} */
+            role: "Applicant" | "Approver" | "Admin";
+            isActive: boolean;
+        } & {
+            [key: string]: unknown;
+        };
+        AuthUserResponse: {
+            user: components["schemas"]["AuthUser"];
+        };
+        LoginInput: {
+            /** Format: email */
+            email: string;
+            password: string;
+        };
+        CsrfToken: {
+            csrfToken: string;
+        };
         CreateRequestBody: {
             title: string;
             body: string;
@@ -165,7 +334,7 @@ export interface components {
         UpdateRequestBody: {
             title?: string;
             body?: string;
-        };
+        } | unknown | unknown;
         DecisionBody: {
             reason?: string;
         };
@@ -183,6 +352,56 @@ export interface components {
             limit: number;
             total: number;
         };
+        UserManagement: components["schemas"]["AuthUser"] & ({
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        } & {
+            [key: string]: unknown;
+        });
+        UpdateAccountInput: {
+            displayName?: string | null;
+            /** @enum {string} */
+            language?: "ja" | "en";
+        } & {
+            [key: string]: unknown;
+        };
+        ChangePasswordInput: {
+            currentPassword: string;
+            newPassword: string;
+        } & {
+            [key: string]: unknown;
+        };
+        CreateUserInput: {
+            /** Format: email */
+            email: string;
+            password: string;
+            displayName?: string | null;
+            /** @enum {string} */
+            language?: "ja" | "en";
+            teamId?: string;
+            /** @enum {string} */
+            role?: "Applicant" | "Approver" | "Admin";
+        } & {
+            [key: string]: unknown;
+        };
+        UpdateUserInput: {
+            displayName?: string | null;
+            /** @enum {string} */
+            language?: "ja" | "en";
+            teamId?: string;
+            /** @enum {string} */
+            role?: "Applicant" | "Approver" | "Admin";
+            isActive?: boolean;
+        } & {
+            [key: string]: unknown;
+        };
+        UserList: {
+            items: components["schemas"]["UserManagement"][];
+        } & {
+            [key: string]: unknown;
+        };
     };
     responses: {
         /** @description Bad Request */
@@ -196,6 +415,15 @@ export interface components {
         };
         /** @description Forbidden */
         Forbidden: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
+        /** @description Unauthorized */
+        Unauthorized: {
             headers: {
                 [name: string]: unknown;
             };
@@ -221,6 +449,15 @@ export interface components {
                 "application/json": components["schemas"]["ErrorResponse"];
             };
         };
+        /** @description Internal Server Error */
+        InternalServerError: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
     };
     parameters: {
         RequestId: components["schemas"]["Uuid"];
@@ -233,21 +470,108 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    loginUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    /** @description Auth and CSRF cookies are set by the server. */
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthUserResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    logoutUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getCurrentUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthUser"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getCsrfToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CsrfToken"];
+                };
+            };
+        };
+    };
     listRequests: {
         parameters: {
-            query: {
-                teamId: components["schemas"]["Uuid"];
+            query?: {
                 status?: components["schemas"]["RequestStatus"];
+                /** @description A date string accepted by Date.parse */
                 from?: string;
+                /** @description A date string accepted by Date.parse */
                 to?: string;
                 includeDeleted?: boolean;
                 page?: number;
                 limit?: number;
             };
-            header: {
-                "x-actor-id": components["parameters"]["XActorId"];
-                "x-team-id": components["parameters"]["XTeamId"];
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -263,16 +587,13 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
-            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalServerError"];
         };
     };
     createRequest: {
         parameters: {
             query?: never;
-            header: {
-                "x-actor-id": components["parameters"]["XActorId"];
-                "x-team-id": components["parameters"]["XTeamId"];
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -288,22 +609,19 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        request: components["schemas"]["Request"];
-                    };
+                    "application/json": components["schemas"]["Request"];
                 };
             };
             400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalServerError"];
         };
     };
     getRequest: {
         parameters: {
             query?: never;
-            header: {
-                "x-actor-id": components["parameters"]["XActorId"];
-                "x-team-id": components["parameters"]["XTeamId"];
-            };
+            header?: never;
             path: {
                 id: components["parameters"]["RequestId"];
             };
@@ -317,23 +635,18 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        request: components["schemas"]["Request"];
-                        approvals: components["schemas"]["Approval"][];
-                    };
+                    "application/json": components["schemas"]["RequestDetail"];
                 };
             };
-            403: components["responses"]["Forbidden"];
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
         };
     };
     updateRequest: {
         parameters: {
             query?: never;
-            header: {
-                "x-actor-id": components["parameters"]["XActorId"];
-                "x-team-id": components["parameters"]["XTeamId"];
-            };
+            header?: never;
             path: {
                 id: components["parameters"]["RequestId"];
             };
@@ -351,24 +664,21 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        request: components["schemas"]["Request"];
-                    };
+                    "application/json": components["schemas"]["Request"];
                 };
             };
             400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            500: components["responses"]["InternalServerError"];
         };
     };
     submitRequest: {
         parameters: {
             query?: never;
-            header: {
-                "x-actor-id": components["parameters"]["XActorId"];
-                "x-team-id": components["parameters"]["XTeamId"];
-            };
+            header?: never;
             path: {
                 id: components["parameters"]["RequestId"];
             };
@@ -382,23 +692,21 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        request: components["schemas"]["Request"];
-                    };
+                    "application/json": components["schemas"]["Request"];
                 };
             };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            500: components["responses"]["InternalServerError"];
         };
     };
     approveRequest: {
         parameters: {
             query?: never;
-            header: {
-                "x-actor-id": components["parameters"]["XActorId"];
-                "x-team-id": components["parameters"]["XTeamId"];
-            };
+            header?: never;
             path: {
                 id: components["parameters"]["RequestId"];
             };
@@ -416,24 +724,21 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        request: components["schemas"]["Request"];
-                        approval: components["schemas"]["Approval"];
-                    };
+                    "application/json": components["schemas"]["Request"];
                 };
             };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            500: components["responses"]["InternalServerError"];
         };
     };
     rejectRequest: {
         parameters: {
             query?: never;
-            header: {
-                "x-actor-id": components["parameters"]["XActorId"];
-                "x-team-id": components["parameters"]["XTeamId"];
-            };
+            header?: never;
             path: {
                 id: components["parameters"]["RequestId"];
             };
@@ -451,24 +756,21 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        request: components["schemas"]["Request"];
-                        approval: components["schemas"]["Approval"];
-                    };
+                    "application/json": components["schemas"]["Request"];
                 };
             };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            500: components["responses"]["InternalServerError"];
         };
     };
     reviseRequest: {
         parameters: {
             query?: never;
-            header: {
-                "x-actor-id": components["parameters"]["XActorId"];
-                "x-team-id": components["parameters"]["XTeamId"];
-            };
+            header?: never;
             path: {
                 id: components["parameters"]["RequestId"];
             };
@@ -482,23 +784,21 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        request: components["schemas"]["Request"];
-                    };
+                    "application/json": components["schemas"]["Request"];
                 };
             };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            500: components["responses"]["InternalServerError"];
         };
     };
     deleteRequest: {
         parameters: {
             query?: never;
-            header: {
-                "x-actor-id": components["parameters"]["XActorId"];
-                "x-team-id": components["parameters"]["XTeamId"];
-            };
+            header?: never;
             path: {
                 id: components["parameters"]["RequestId"];
             };
@@ -512,14 +812,163 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        request: components["schemas"]["Request"];
-                    };
+                    "application/json": components["schemas"]["Request"];
                 };
             };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    updateAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateAccountInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthUser"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    changePassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangePasswordInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthUser"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    listUsers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    createUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateUserInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserManagement"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    updateUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateUserInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserManagement"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            500: components["responses"]["InternalServerError"];
         };
     };
 }

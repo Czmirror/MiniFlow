@@ -3,45 +3,18 @@ info:
   title: MiniFlow API
   version: 0.1.0
   description: API contract for MiniFlow MVP.
-
 servers:
-  - url: /api/v1
-
+  - url: /
 tags:
   - name: Auth
     description: Cookie-based authentication endpoints
   - name: Requests
     description: Request workflow endpoints
-
 paths:
-  /auth/register:
-    post:
-      tags: [Auth]
-      summary: Register user
-      operationId: registerUser
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/RegisterInput"
-      responses:
-        "201":
-          description: Created
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AuthUserResponse"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
-
   /auth/login:
     post:
-      tags: [Auth]
+      tags:
+        - Auth
       summary: Login user and set auth cookies
       operationId: loginUser
       requestBody:
@@ -66,15 +39,18 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "500":
           $ref: "#/components/responses/InternalServerError"
-
+      description: >-
+        JWT and cookies expire after 8 hours. JWT contains a session version. Legacy tokens without
+        expiry/version are rejected.
   /auth/logout:
     post:
-      tags: [Auth]
+      tags:
+        - Auth
       summary: Logout user and clear cookies
       operationId: logoutUser
       security:
         - cookieAuth: []
-        - csrfHeader: []
+          csrfHeader: []
       responses:
         "204":
           description: No Content
@@ -82,10 +58,10 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
-
   /auth/me:
     get:
-      tags: [Auth]
+      tags:
+        - Auth
       summary: Get current user
       operationId: getCurrentUser
       security:
@@ -99,10 +75,10 @@ paths:
                 $ref: "#/components/schemas/AuthUser"
         "401":
           $ref: "#/components/responses/Unauthorized"
-
   /auth/csrf:
     get:
-      tags: [Auth]
+      tags:
+        - Auth
       summary: Issue CSRF token
       operationId: getCsrfToken
       security:
@@ -114,15 +90,15 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CsrfToken"
-
   /requests:
     post:
-      tags: [Requests]
+      tags:
+        - Requests
       summary: Create draft request
       operationId: createRequest
       security:
         - cookieAuth: []
-        - csrfHeader: []
+          csrfHeader: []
       requestBody:
         required: true
         content:
@@ -145,15 +121,11 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
     get:
-      tags: [Requests]
+      tags:
+        - Requests
       summary: List requests
       operationId: listRequests
       parameters:
-        - name: teamId
-          in: query
-          required: true
-          schema:
-            type: string
         - name: status
           in: query
           required: false
@@ -164,13 +136,13 @@ paths:
           required: false
           schema:
             type: string
-            format: date-time
+          description: A date string accepted by Date.parse
         - name: to
           in: query
           required: false
           schema:
             type: string
-            format: date-time
+          description: A date string accepted by Date.parse
         - name: includeDeleted
           in: query
           required: false
@@ -203,15 +175,17 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "500":
           $ref: "#/components/responses/InternalServerError"
-
+      security:
+        - cookieAuth: []
   /requests/{id}:
     patch:
-      tags: [Requests]
+      tags:
+        - Requests
       summary: Update request (Draft only)
       operationId: updateRequest
       security:
         - cookieAuth: []
-        - csrfHeader: []
+          csrfHeader: []
       parameters:
         - $ref: "#/components/parameters/RequestId"
       requestBody:
@@ -240,7 +214,8 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
     get:
-      tags: [Requests]
+      tags:
+        - Requests
       summary: Get request detail
       operationId: getRequest
       parameters:
@@ -258,15 +233,17 @@ paths:
           $ref: "#/components/responses/NotFound"
         "500":
           $ref: "#/components/responses/InternalServerError"
-
+      security:
+        - cookieAuth: []
   /requests/{id}/submit:
     post:
-      tags: [Requests]
+      tags:
+        - Requests
       summary: Submit request (Draft -> Pending)
       operationId: submitRequest
       security:
         - cookieAuth: []
-        - csrfHeader: []
+          csrfHeader: []
       parameters:
         - $ref: "#/components/parameters/RequestId"
       responses:
@@ -288,15 +265,15 @@ paths:
           $ref: "#/components/responses/Conflict"
         "500":
           $ref: "#/components/responses/InternalServerError"
-
   /requests/{id}/approve:
     post:
-      tags: [Requests]
+      tags:
+        - Requests
       summary: Approve request (Pending -> Approved)
       operationId: approveRequest
       security:
         - cookieAuth: []
-        - csrfHeader: []
+          csrfHeader: []
       parameters:
         - $ref: "#/components/parameters/RequestId"
       requestBody:
@@ -324,15 +301,15 @@ paths:
           $ref: "#/components/responses/Conflict"
         "500":
           $ref: "#/components/responses/InternalServerError"
-
   /requests/{id}/reject:
     post:
-      tags: [Requests]
+      tags:
+        - Requests
       summary: Reject request (Pending -> Rejected)
       operationId: rejectRequest
       security:
         - cookieAuth: []
-        - csrfHeader: []
+          csrfHeader: []
       parameters:
         - $ref: "#/components/parameters/RequestId"
       requestBody:
@@ -360,15 +337,15 @@ paths:
           $ref: "#/components/responses/Conflict"
         "500":
           $ref: "#/components/responses/InternalServerError"
-
   /requests/{id}/revise:
     post:
-      tags: [Requests]
+      tags:
+        - Requests
       summary: Revise request (Rejected -> Draft)
       operationId: reviseRequest
       security:
         - cookieAuth: []
-        - csrfHeader: []
+          csrfHeader: []
       parameters:
         - $ref: "#/components/parameters/RequestId"
       responses:
@@ -390,15 +367,15 @@ paths:
           $ref: "#/components/responses/Conflict"
         "500":
           $ref: "#/components/responses/InternalServerError"
-
   /requests/{id}/delete:
     post:
-      tags: [Requests]
+      tags:
+        - Requests
       summary: Logical delete request (Draft/Rejected -> Deleted)
       operationId: deleteRequest
       security:
         - cookieAuth: []
-        - csrfHeader: []
+          csrfHeader: []
       parameters:
         - $ref: "#/components/parameters/RequestId"
       responses:
@@ -420,7 +397,174 @@ paths:
           $ref: "#/components/responses/Conflict"
         "500":
           $ref: "#/components/responses/InternalServerError"
-
+  /account:
+    patch:
+      tags:
+        - Auth
+      operationId: updateAccount
+      summary: Update own profile; omitted fields remain unchanged
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAccountInput"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthUser"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+      security:
+        - cookieAuth: []
+          csrfHeader: []
+  /account/password:
+    post:
+      tags:
+        - Auth
+      operationId: changePassword
+      summary: Change password and invalidate all sessions; clear cookies
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordInput"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthUser"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+      security:
+        - cookieAuth: []
+          csrfHeader: []
+  /users:
+    get:
+      tags:
+        - Auth
+      operationId: listUsers
+      summary: "Admin only: list users"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserList"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+      security:
+        - cookieAuth: []
+    post:
+      tags:
+        - Auth
+      operationId: createUser
+      summary: "Admin only: create user"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserInput"
+      responses:
+        "201":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserManagement"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+      security:
+        - cookieAuth: []
+          csrfHeader: []
+  /users/{id}:
+    patch:
+      tags:
+        - Auth
+      operationId: updateUser
+      summary: "Admin only: update user assignment and profile"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserInput"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserManagement"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/Uuid"
+      security:
+        - cookieAuth: []
+          csrfHeader: []
 components:
   parameters:
     RequestId:
@@ -441,7 +585,6 @@ components:
       required: true
       schema:
         $ref: "#/components/schemas/Uuid"
-
   responses:
     BadRequest:
       description: Bad Request
@@ -521,7 +664,6 @@ components:
                   code: INTERNAL_SERVER_ERROR
                   message: Unexpected server error.
                   status: 500
-
   securitySchemes:
     cookieAuth:
       type: apiKey
@@ -531,20 +673,23 @@ components:
       type: apiKey
       in: header
       name: x-csrf-token
-
   schemas:
     Uuid:
       type: string
       format: uuid
-
     RequestStatus:
       type: string
-      enum: [Draft, Pending, Approved, Rejected, Deleted]
-
+      enum:
+        - Draft
+        - Pending
+        - Approved
+        - Rejected
+        - Deleted
     ApprovalActionType:
       type: string
-      enum: [Approved, Rejected]
-
+      enum:
+        - Approved
+        - Rejected
     Request:
       type: object
       required:
@@ -564,11 +709,9 @@ components:
         title:
           type: string
           minLength: 1
-          maxLength: 200
         body:
           type: string
           minLength: 1
-          maxLength: 5000
         status:
           $ref: "#/components/schemas/RequestStatus"
         createdBy:
@@ -580,9 +723,10 @@ components:
           type: string
           format: date-time
         deletedAt:
-          type: [string, "null"]
+          type:
+            - string
+            - "null"
           format: date-time
-
     Approval:
       type: object
       required:
@@ -601,12 +745,12 @@ components:
         actionType:
           $ref: "#/components/schemas/ApprovalActionType"
         reason:
-          type: [string, "null"]
-          maxLength: 1000
+          type:
+            - string
+            - "null"
         createdAt:
           type: string
           format: date-time
-
     RequestDetail:
       type: object
       required:
@@ -619,27 +763,54 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Approval"
-
     AuthUser:
       type: object
-      required: [id, email]
+      required:
+        - id
+        - email
+        - displayName
+        - language
+        - teamId
+        - role
+        - isActive
       properties:
         id:
           $ref: "#/components/schemas/Uuid"
         email:
           type: string
           format: email
-
+        displayName:
+          type:
+            - string
+            - "null"
+        language:
+          type: string
+          enum:
+            - ja
+            - en
+        teamId:
+          type: string
+        role:
+          type: string
+          enum:
+            - Applicant
+            - Approver
+            - Admin
+        isActive:
+          type: boolean
+      additionalProperties: true
     AuthUserResponse:
       type: object
-      required: [user]
+      required:
+        - user
       properties:
         user:
           $ref: "#/components/schemas/AuthUser"
-
     LoginInput:
       type: object
-      required: [email, password]
+      required:
+        - email
+        - password
       properties:
         email:
           type: string
@@ -647,65 +818,54 @@ components:
         password:
           type: string
           minLength: 8
-
-    RegisterInput:
-      type: object
-      required: [email, password]
-      properties:
-        email:
-          type: string
-          format: email
-        password:
-          type: string
-          minLength: 8
-
     CsrfToken:
       type: object
-      required: [csrfToken]
+      required:
+        - csrfToken
       properties:
         csrfToken:
           type: string
-
     CreateRequestBody:
       type: object
-      required: [teamId, title, body]
+      required:
+        - title
+        - body
       properties:
-        teamId:
-          type: string
-          minLength: 1
-          maxLength: 200
         title:
           type: string
           minLength: 1
-          maxLength: 200
+          pattern: \S
         body:
           type: string
           minLength: 1
-          maxLength: 5000
-
+          pattern: \S
     UpdateRequestBody:
       type: object
-      minProperties: 1
       properties:
         title:
           type: string
           minLength: 1
-          maxLength: 200
+          pattern: \S
         body:
           type: string
           minLength: 1
-          maxLength: 5000
-
+          pattern: \S
+      anyOf:
+        - required:
+            - title
+        - required:
+            - body
     DecisionBody:
       type: object
       properties:
         reason:
           type: string
-          maxLength: 1000
-
     ErrorObject:
       type: object
-      required: [code, message, status]
+      required:
+        - code
+        - message
+        - status
       properties:
         code:
           type: string
@@ -713,17 +873,20 @@ components:
           type: string
         status:
           type: integer
-
     ErrorResponse:
       type: object
-      required: [error]
+      required:
+        - error
       properties:
         error:
           $ref: "#/components/schemas/ErrorObject"
-
     ListRequestsResponse:
       type: object
-      required: [items, page, limit, total]
+      required:
+        - items
+        - page
+        - limit
+        - total
       properties:
         items:
           type: array
@@ -739,3 +902,109 @@ components:
         total:
           type: integer
           minimum: 0
+    UserManagement:
+      allOf:
+        - $ref: "#/components/schemas/AuthUser"
+        - type: object
+          required:
+            - createdAt
+            - updatedAt
+          properties:
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
+          additionalProperties: true
+    UpdateAccountInput:
+      type: object
+      properties:
+        displayName:
+          type:
+            - string
+            - "null"
+        language:
+          type: string
+          enum:
+            - ja
+            - en
+      additionalProperties: true
+    ChangePasswordInput:
+      type: object
+      required:
+        - currentPassword
+        - newPassword
+      properties:
+        currentPassword:
+          type: string
+          minLength: 8
+        newPassword:
+          type: string
+          minLength: 8
+      additionalProperties: true
+    CreateUserInput:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        displayName:
+          type:
+            - string
+            - "null"
+        language:
+          type: string
+          enum:
+            - ja
+            - en
+        teamId:
+          type: string
+          pattern: \S
+        role:
+          type: string
+          enum:
+            - Applicant
+            - Approver
+            - Admin
+      additionalProperties: true
+    UpdateUserInput:
+      type: object
+      properties:
+        displayName:
+          type:
+            - string
+            - "null"
+        language:
+          type: string
+          enum:
+            - ja
+            - en
+        teamId:
+          type: string
+          pattern: \S
+        role:
+          type: string
+          enum:
+            - Applicant
+            - Approver
+            - Admin
+        isActive:
+          type: boolean
+      additionalProperties: true
+    UserList:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserManagement"
+      additionalProperties: true

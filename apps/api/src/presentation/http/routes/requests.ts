@@ -1,5 +1,6 @@
+/** 申請HTTPの入力schema・認可境界と、usecaseの結果変換を担当する。 */
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import type { PrismaClient } from "@prisma/client";
+import type { RequestRepository } from "../../../application/ports/RequestRepository.js";
 import type { ListRequestsInput } from "@miniflow/shared";
 import { InputValidationError } from "../../../application/errors/InputValidationError.js";
 import { StateConflictError } from "../../../application/errors/StateConflictError.js";
@@ -13,17 +14,16 @@ import { rejectRequest } from "../../../application/requests/RejectRequest.js";
 import { reviseRequest } from "../../../application/requests/ReviseRequest.js";
 import { submitRequest } from "../../../application/requests/SubmitRequest.js";
 import { updateRequest } from "../../../application/requests/UpdateRequest.js";
-import { PrismaRequestRepository } from "../../../infrastructure/repositories/PrismaRequestRepository.js";
+import { idParams, createRequestSchema, updateRequestSchema, decisionSchema, requestListSchema } from "../validation/schemas.js";
 import { toRequestDetailDto, toRequestDto } from "../mappers/toRequestDto.js";
 
 /**
  * Routes stay thin on purpose. If a request workflow rule changes, update the
  * use case or domain first and keep this file focused on HTTP translation.
  */
-export function registerRequestRoutes(server: FastifyInstance, prisma: PrismaClient) {
-  const repository = new PrismaRequestRepository(prisma);
+export function registerRequestRoutes(server: FastifyInstance, repository: RequestRepository) {
 
-  server.post("/requests", { preHandler: [server.requireAuth, server.requireCsrf] }, async (request, reply) => {
+  server.post("/requests", { schema: createRequestSchema, preHandler: [server.requireAuth, server.requireCsrf] }, async (request, reply) => {
     const body = (request.body ?? {}) as Partial<{
       title: string;
       body: string;
@@ -47,7 +47,7 @@ export function registerRequestRoutes(server: FastifyInstance, prisma: PrismaCli
     }
   });
 
-  server.get("/requests/:id", { preHandler: [server.requireAuth] }, async (request, reply) => {
+  server.get("/requests/:id", { schema: { params: idParams }, preHandler: [server.requireAuth] }, async (request, reply) => {
     const params = request.params as { id?: string };
 
     try {
@@ -71,7 +71,7 @@ export function registerRequestRoutes(server: FastifyInstance, prisma: PrismaCli
     }
   });
 
-  server.get("/requests", { preHandler: [server.requireAuth] }, async (request, reply) => {
+  server.get("/requests", { schema: requestListSchema, preHandler: [server.requireAuth] }, async (request, reply) => {
     const query = request.query as Partial<{
       status: ListRequestsInput["status"];
       includeDeleted: string;
@@ -92,8 +92,8 @@ export function registerRequestRoutes(server: FastifyInstance, prisma: PrismaCli
         includeDeleted: query.includeDeleted === "true",
         from: query.from,
         to: query.to,
-        page: query.page ? Number(query.page) : undefined,
-        limit: query.limit ? Number(query.limit) : undefined
+        page: query.page !== undefined ? Number(query.page) : undefined,
+        limit: query.limit !== undefined ? Number(query.limit) : undefined
       });
 
       return reply.send({
@@ -107,7 +107,7 @@ export function registerRequestRoutes(server: FastifyInstance, prisma: PrismaCli
     }
   });
 
-  server.patch("/requests/:id", { preHandler: [server.requireAuth, server.requireCsrf] }, async (request, reply) => {
+  server.patch("/requests/:id", { schema: updateRequestSchema, preHandler: [server.requireAuth, server.requireCsrf] }, async (request, reply) => {
     const params = request.params as { id?: string };
     const body = (request.body ?? {}) as Partial<{
       title: string;
@@ -145,7 +145,7 @@ export function registerRequestRoutes(server: FastifyInstance, prisma: PrismaCli
     }
   });
 
-  server.post("/requests/:id/submit", { preHandler: [server.requireAuth, server.requireCsrf] }, async (request, reply) => {
+  server.post("/requests/:id/submit", { schema: { params: idParams }, preHandler: [server.requireAuth, server.requireCsrf] }, async (request, reply) => {
     const params = request.params as { id?: string };
 
     try {
@@ -178,7 +178,7 @@ export function registerRequestRoutes(server: FastifyInstance, prisma: PrismaCli
     }
   });
 
-  server.post("/requests/:id/approve", { preHandler: [server.requireAuth, server.requireCsrf] }, async (request, reply) => {
+  server.post("/requests/:id/approve", { schema: decisionSchema, preValidation: async (req) => { if (req.body === undefined) req.body = {}; }, preHandler: [server.requireAuth, server.requireCsrf] }, async (request, reply) => {
     const params = request.params as { id?: string };
     const body = (request.body ?? {}) as Partial<{ reason: string }>;
 
@@ -213,7 +213,7 @@ export function registerRequestRoutes(server: FastifyInstance, prisma: PrismaCli
     }
   });
 
-  server.post("/requests/:id/reject", { preHandler: [server.requireAuth, server.requireCsrf] }, async (request, reply) => {
+  server.post("/requests/:id/reject", { schema: decisionSchema, preValidation: async (req) => { if (req.body === undefined) req.body = {}; }, preHandler: [server.requireAuth, server.requireCsrf] }, async (request, reply) => {
     const params = request.params as { id?: string };
     const body = (request.body ?? {}) as Partial<{ reason: string }>;
 
@@ -248,7 +248,7 @@ export function registerRequestRoutes(server: FastifyInstance, prisma: PrismaCli
     }
   });
 
-  server.post("/requests/:id/revise", { preHandler: [server.requireAuth, server.requireCsrf] }, async (request, reply) => {
+  server.post("/requests/:id/revise", { schema: { params: idParams }, preHandler: [server.requireAuth, server.requireCsrf] }, async (request, reply) => {
     const params = request.params as { id?: string };
 
     try {
@@ -278,7 +278,7 @@ export function registerRequestRoutes(server: FastifyInstance, prisma: PrismaCli
     }
   });
 
-  server.post("/requests/:id/delete", { preHandler: [server.requireAuth, server.requireCsrf] }, async (request, reply) => {
+  server.post("/requests/:id/delete", { schema: { params: idParams }, preHandler: [server.requireAuth, server.requireCsrf] }, async (request, reply) => {
     const params = request.params as { id?: string };
 
     try {
@@ -310,7 +310,7 @@ export function registerRequestRoutes(server: FastifyInstance, prisma: PrismaCli
 }
 
 async function ensureRequestBelongsToCurrentTeam(
-  repository: PrismaRequestRepository,
+  repository: RequestRepository,
   id: string,
   currentTeamId: string
 ) {
@@ -376,7 +376,7 @@ function handleRouteError(
     });
   }
 
-  request.log.error(error);
+  request.log.error({ event: "request_operation_failure", requestId: request.id }, "request operation failed");
 
   return reply.code(500).send({
     error: {

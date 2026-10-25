@@ -34,6 +34,7 @@ model RequestRecord {
 model UserRecord {
   id           String   @id @default(uuid()) @db.Uuid
   email        String   @unique
+  sessionVersion Int    @default(0)
   passwordHash String
   displayName  String?
   language     String   @default("ja")

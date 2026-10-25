@@ -1,3 +1,4 @@
+/** cookieの署名・期限・認証世代と現在の有効ユーザーを照合し、HTTPへ安全なactor情報を渡す。 */
 import fp from "fastify-plugin";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import type { UserRepository } from "../../../application/ports/UserRepository.js";
@@ -36,9 +37,17 @@ export const authPlugin = fp(async function authPlugin(server, options: { userRe
         return reply.code(401).send(authError("UNAUTHORIZED", "authentication required", 401));
       }
 
-      const payload = await request.jwtVerify<{ sub: string }>({ onlyCookie: true });
+      let payload: { sub: string; sv: number; exp: number };
+      try {
+        payload = await request.jwtVerify<typeof payload>({ onlyCookie: true });
+      } catch {
+        return reply.code(401).send(authError("UNAUTHORIZED", "authentication required", 401));
+      }
+      if (typeof payload.sub !== "string" || !Number.isSafeInteger(payload.sv) || payload.sv < 0 || !Number.isFinite(payload.exp)) {
+        return reply.code(401).send(authError("UNAUTHORIZED", "authentication required", 401));
+      }
       const user = await getCurrentUser(options.userRepository, payload.sub);
-      if (!user || !user.isActive) {
+      if (!user || !user.isActive || user.sessionVersion !== payload.sv) {
         return reply.code(401).send(authError("UNAUTHORIZED", "authentication required", 401));
       }
 
@@ -52,7 +61,8 @@ export const authPlugin = fp(async function authPlugin(server, options: { userRe
         isActive: user.isActive
       };
     } catch {
-      return reply.code(401).send(authError("UNAUTHORIZED", "authentication required", 401));
+      request.log.error({ event: "authentication_storage_failure", requestId: request.id }, "authentication unavailable");
+      return reply.code(500).send(authError("INTERNAL_SERVER_ERROR", "authentication unavailable", 500));
     }
   });
 

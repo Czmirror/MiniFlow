@@ -1,9 +1,11 @@
+/** 管理者HTTPとローカルCLIからユーザーを新規作成する。公開signupの入口は持たない。 */
 import { randomUUID } from "node:crypto";
 import { StateConflictError } from "../errors/StateConflictError.js";
 import type { UserRepository } from "../ports/UserRepository.js";
 import { validateEmail } from "./validation/validateEmail.js";
 import { validatePassword } from "./validation/validatePassword.js";
 import { hashPassword } from "../../infrastructure/auth/password.js";
+import { optionalDisplayName, optionalLanguage, optionalRole, requiredText } from "./validation/profile.js";
 import type { UserRole } from "../../domain/user/User.js";
 
 /**
@@ -24,6 +26,13 @@ export async function registerUser(
   const email = validateEmail(input.email);
   const password = validatePassword(input.password);
 
+  const profile = {
+    displayName: optionalDisplayName(input.displayName),
+    language: optionalLanguage(input.language) ?? "ja",
+    teamId: requiredText(input.teamId === undefined ? "team-1" : input.teamId, "teamId"),
+    role: optionalRole(input.role) ?? "Applicant"
+  };
+
   const existingUser = await repository.findByEmail(email);
   if (existingUser) {
     throw new StateConflictError("email already exists");
@@ -34,28 +43,7 @@ export async function registerUser(
     id: randomUUID(),
     email,
     passwordHash,
-    displayName: normalizeOptionalText(input.displayName),
-    language: input.language ?? "ja",
-    teamId: normalizeRequiredText(input.teamId ?? "team-1", "teamId"),
-    role: input.role ?? "Applicant",
+    ...profile,
     isActive: true
   });
-}
-
-function normalizeOptionalText(value: string | null | undefined): string | null {
-  if (typeof value !== "string") {
-    return null;
-  }
-
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
-
-function normalizeRequiredText(value: string, fieldName: string): string {
-  const trimmed = value.trim();
-  if (trimmed.length === 0) {
-    throw new StateConflictError(`${fieldName} is required`);
-  }
-
-  return trimmed;
 }

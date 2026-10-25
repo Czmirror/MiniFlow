@@ -5,7 +5,6 @@ import type {
   CreateUserInput,
   CsrfTokenDto,
   LoginInput,
-  RegisterInput,
   UpdateAccountInput,
   UpdateUserInput,
   UserManagementDto
@@ -16,18 +15,6 @@ let csrfTokenCache: string | null = null;
 /**
  * Auth transport is centralized here so UI components do not manage cookie or csrf details.
  */
-export async function register(apiBaseUrl: string, input: RegisterInput): Promise<AuthUserDto> {
-  const response = await fetch(`${apiBaseUrl}/auth/register`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(input),
-    credentials: "include"
-  });
-
-  const payload = await parseResponse<{ user: AuthUserDto }>(response);
-  return payload.user;
-}
-
 export async function login(apiBaseUrl: string, input: LoginInput): Promise<AuthUserDto> {
   const response = await fetch(`${apiBaseUrl}/auth/login`, {
     method: "POST",
@@ -97,7 +84,9 @@ export async function changePassword(apiBaseUrl: string, input: ChangePasswordIn
     credentials: "include"
   });
 
-  return parseResponse<AuthUserDto>(response);
+  const user = await parseResponse<AuthUserDto>(response);
+  csrfTokenCache = null;
+  return user;
 }
 
 export async function listUsers(apiBaseUrl: string): Promise<{ items: UserManagementDto[] }> {

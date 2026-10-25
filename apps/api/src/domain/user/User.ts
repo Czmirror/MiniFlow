@@ -1,11 +1,10 @@
-/**
- * User is intentionally small for the first authentication slice. Add roles or
- * team membership later without leaking transport concerns into request workflow code.
- */
+/** 認証とprofileの現在状態を表す。sessionVersionはpassword変更ごとの認証世代で、transportへは公開しない。 */
 export class User {
   readonly id: string;
   readonly email: string;
   readonly passwordHash: string;
+  /** password変更ごとに増える認証世代。JWTに記録した世代と一致する場合だけ認証する。 */
+  readonly sessionVersion: number;
   readonly displayName: string | null;
   readonly language: "ja" | "en";
   readonly teamId: string;
@@ -18,6 +17,7 @@ export class User {
     id: string;
     email: string;
     passwordHash: string;
+    sessionVersion?: number;
     displayName?: string | null;
     language?: string;
     teamId?: string;
@@ -29,6 +29,7 @@ export class User {
     this.id = params.id;
     this.email = params.email;
     this.passwordHash = params.passwordHash;
+    this.sessionVersion = params.sessionVersion ?? 0;
     this.displayName = params.displayName ?? null;
     this.language = normalizeLanguage(params.language);
     this.teamId = normalizeTeamId(params.teamId);

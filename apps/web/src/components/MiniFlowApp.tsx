@@ -130,7 +130,7 @@ const messages = {
     userCreated: "ユーザーを作成しました。",
     userUpdated: "ユーザーを更新しました。",
     accountUpdated: "アカウント設定を保存しました。",
-    passwordChanged: "パスワードを変更しました。",
+    passwordChanged: "パスワードを変更しました。再ログインしてください。",
     loginSuccess: "ログインしました。",
     createSuccess: "下書きを保存しました。",
     approveSuccess: "承認しました。",
@@ -226,7 +226,7 @@ const messages = {
     userCreated: "User created.",
     userUpdated: "User updated.",
     accountUpdated: "Account settings saved.",
-    passwordChanged: "Password changed.",
+    passwordChanged: "Password changed. Please log in again.",
     loginSuccess: "Logged in.",
     createSuccess: "Draft saved.",
     approveSuccess: "Approved.",
@@ -567,8 +567,14 @@ export function MiniFlowApp() {
     setMessage(null);
 
     try {
-      const user = await changePassword(apiBaseUrl, passwordForm);
-      setCurrentUser(user);
+      await changePassword(apiBaseUrl, passwordForm);
+      setCurrentUser(null);
+      setPassword("");
+      setRequests([]);
+      setUsers([]);
+      setSelectedRequest(null);
+      setApprovals([]);
+      setView("dashboard");
       setPasswordForm(initialPasswordForm);
       setMessage(labels.passwordChanged);
     } catch (caughtError) {
