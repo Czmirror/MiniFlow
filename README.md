@@ -10,13 +10,13 @@ It is also used as an experiment for AI-assisted development using tools such as
 
 MiniFlow follows a simple monorepo architecture.
 
-- `apps/web`  
+- `apps/web`\
   Next.js frontend
-- `apps/api`  
+- `apps/api`\
   Fastify backend API
-- `packages/shared`  
+- `packages/shared`\
   Shared TypeScript types
-- `docs`  
+- `docs`\
   Architecture and domain documentation
 
 The backend is structured with domain / application / infrastructure layers so the system can grow into a larger workflow platform.
@@ -52,7 +52,7 @@ miniflow/
 ```
 
 ## Prerequisites
-- Node.js 20+
+- Node.js 22.12+（AI開発ハーネスを含む検証環境）
 - Corepack enabled (`corepack enable`)
 - Docker Desktop
 
@@ -138,7 +138,7 @@ Open [http://localhost:3100](http://localhost:3100), then:
 ## Notes
 - Auth now uses `httpOnly` cookie + CSRF token instead of `localStorage`.
 - This is still a minimal auth slice. It does not yet implement roles, team membership, or `ApproverPolicy`.
-- Existing root-level prototype code is kept for reference. The runtime path for new API work now lives under `apps/api/src/domain`.
+- The API implementation and its tests use `apps/api/src`. The old root-level domain/application prototype has been removed after migrating its tests.
 - The workflow panel is intentionally a verification UI. It is not yet a polished product screen.
 
 ## Next steps
@@ -152,3 +152,20 @@ Open [http://localhost:3100](http://localhost:3100), then:
 - [ERD](/Users/admin/WebPortfolio/MiniFlow/docs/ERD.md)
 - [API](/Users/admin/WebPortfolio/MiniFlow/docs/API.md)
 - [Implementation Guide](/Users/admin/WebPortfolio/MiniFlow/docs/IMPLEMENTATION_GUIDE.md)
+
+## 検証環境
+
+Git submoduleを含めてcloneする場合は `git clone --recurse-submodules` を使う。既存のcloneでは `git submodule update --init --recursive` を実行する。Node.js 22.12以上、pnpm 10.6.3を使用する。
+
+```sh
+pnpm install --frozen-lockfile --ignore-scripts
+pnpm db:generate
+pnpm typecheck
+pnpm test
+pnpm build
+node .harness/upstream/scripts/validate.mjs --execute
+```
+
+installではライフサイクルスクリプトを実行せず、Prisma Clientは明示的に生成する。`db:generate` はコード生成であり、DBへのmigration適用は行わない。生成時に必要なPrisma engineが手元にない場合は取得が必要。通常の `pnpm typecheck` は各workspaceに加え、ルートのテストと生成済みAPI型を検査する。テストはDB接続なしで現行のAPI実装を呼ぶ。HTTP/CORS/画面の一部は既存の文字列検査が残り、実ブラウザや実DBの保証は含まない。
+
+テストの移行対応は [申請テストの案内](docs/templates/request-state-transition.md)、全体の残課題は [レビュー記録](docs/work/harness-source-review/review.md) を参照する。lintは未導入のためハーネスで理由付きskipとし、型検査やbuildがlintの代わりに全問題を検出するとは扱わない。

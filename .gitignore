@@ -25,6 +25,7 @@ coverage/
 dist/
 build/
 .next/
+*.tsbuildinfo
 
 # AI
 .ai-context

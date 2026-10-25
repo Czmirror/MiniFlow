@@ -95,3 +95,20 @@ Do NOT implement:
 - notification system
 - deployment optimization
 - full i18n framework
+
+## ソースの地図
+
+- `apps/api/src/presentation/http/`: HTTP・認証cookie・レスポンス変換。
+- `apps/api/src/application/`: 認証・申請usecaseと保存契約。
+- `apps/api/src/domain/`: 現行のRequest/Approval/User。申請テストの正本。
+- `apps/api/src/infrastructure/`: Prisma・DB・password/JWT等の外部I/O。
+- `apps/web/app/` と `apps/web/src/`: Next.jsの入口、画面、APIクライアント。
+- `packages/shared/src/`: 通信用の共有型。`src/shared/api-types.ts` はOpenAPI生成型として保持。
+- `tests/domain/` と `tests/application/`: 現行APIの状態遷移・usecaseを検証。旧rootのdomain/applicationは削除済み。
+- `tests/support/requests.ts`: 固定時刻のfixtureとメモリ保存先。業務ルールは本番からimportする。
+- `tests/apps/`: 現行APIの認証・承認保存契約、HTTP/画面の既存検査。
+- `docs/templates/request-state-transition.md`: 旧テストから現行テストへの対応案内。
+
+## 既知の問題
+
+全体レビューと段階的な改善計画は `docs/work/harness-source-review/`。第1段階は検証依存・テスト移行・書式修正のみ。公開registerと要件の衝突、入力・認証・競合・UIの課題は後続段階で扱い、この段階で仕様を変更しない。過去の課題一覧には対処済み項目も含まれ、実装状況はレビュー記録と照合する。
