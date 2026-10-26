@@ -1,5 +1,5 @@
 import type { CreateRequestInput, ListRequestsResponse, RequestDetailDto, RequestDto } from "@miniflow/shared";
-import { csrfHeaders } from "./authApi";
+import { csrfHeaders, parseResponse } from "./apiTransport";
 
 /**
  * Keep HTTP details here so UI components can stay focused on user state.
@@ -75,15 +75,4 @@ export async function transitionRequest(
   });
 
   return parseResponse<RequestDto>(response);
-}
-
-async function parseResponse<T>(response: Response): Promise<T> {
-  if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as
-      | { error?: { message?: string } }
-      | null;
-    throw new Error(payload?.error?.message ?? `API request failed with status ${response.status}`);
-  }
-
-  return (await response.json()) as T;
 }

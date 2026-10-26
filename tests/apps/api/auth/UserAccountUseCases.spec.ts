@@ -94,6 +94,7 @@ class InMemoryUserRepository implements UserRepository {
     id: string;
     email: string;
     passwordHash: string;
+    sessionVersion?: number;
     displayName?: string | null;
     language?: "ja" | "en";
     teamId?: string;
@@ -124,6 +125,7 @@ class InMemoryUserRepository implements UserRepository {
       id: current.id,
       email: current.email,
       passwordHash: current.passwordHash,
+      sessionVersion: current.sessionVersion,
       displayName: input.displayName === undefined ? current.displayName : input.displayName,
       language: input.language ?? current.language,
       teamId: input.teamId ?? current.teamId,
@@ -141,6 +143,7 @@ class InMemoryUserRepository implements UserRepository {
       id: current.id,
       email: current.email,
       passwordHash: input.passwordHash,
+      sessionVersion: current.sessionVersion + 1,
       displayName: current.displayName,
       language: current.language,
       teamId: current.teamId,

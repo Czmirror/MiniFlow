@@ -1,14 +1,14 @@
 import type { UserRepository } from "../../application/ports/UserRepository.js";
 import { User } from "../../domain/user/User.js";
 import type { UserRole } from "../../domain/user/User.js";
-import { prisma as prismaClient } from "../db/prisma.js";
+import type { PrismaClient } from "@prisma/client";
 
 /**
  * User persistence stays separate from workflow persistence so auth changes do
  * not leak into request repositories.
  */
 export class PrismaUserRepository implements UserRepository {
-  constructor(private readonly prisma: typeof prismaClient) {}
+  constructor(private readonly prisma: PrismaClient) {}
 
   async create(input: {
     id: string;
@@ -53,7 +53,8 @@ export class PrismaUserRepository implements UserRepository {
     const record = await this.prisma.userRecord.update({
       where: { id: input.id },
       data: {
-        passwordHash: input.passwordHash
+        passwordHash: input.passwordHash,
+        sessionVersion: { increment: 1 }
       }
     });
 
@@ -84,6 +85,7 @@ export class PrismaUserRepository implements UserRepository {
     id: string;
     email: string;
     passwordHash: string;
+    sessionVersion: number;
     displayName: string | null;
     language: string;
     teamId: string;

@@ -9,6 +9,10 @@ import type { ListRequestsInput } from "@miniflow/shared";
 export async function listRequests(repository: RequestRepository, input: ListRequestsInput) {
   validateRequiredString(input.teamId, "teamId");
 
+  if (input.status !== undefined && !["Draft", "Pending", "Approved", "Rejected", "Deleted"].includes(input.status)) {
+    throw new InputValidationError("status must be a known request status");
+  }
+
   const page = input.page ?? 1;
   const limit = input.limit ?? 20;
 
@@ -20,12 +24,17 @@ export async function listRequests(repository: RequestRepository, input: ListReq
     throw new InputValidationError("to must be a valid ISO datetime");
   }
 
-  if (!Number.isInteger(page) || page < 1) {
+  if (!Number.isSafeInteger(page) || page < 1) {
     throw new InputValidationError("page must be a positive integer");
   }
 
   if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
     throw new InputValidationError("limit must be between 1 and 100");
+  }
+
+  // 保存先へ渡すoffsetも正確に表現できる組合せに限定する。
+  if (!Number.isSafeInteger((page - 1) * limit)) {
+    throw new InputValidationError("page and limit exceed the supported offset range");
   }
 
   const normalizedInput: NormalizedListRequestsInput = {

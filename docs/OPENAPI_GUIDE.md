@@ -26,7 +26,7 @@
 TypeScript型を自動生成して、コード側から使う。
 
 ```bash
-npm run openapi:types
+pnpm exec openapi-typescript docs/openapi.yaml -o src/shared/api-types.ts
 ```
 
 生成先:
@@ -42,3 +42,5 @@ type ApproveResponse =
 ```
 
 この方法だと、API仕様変更時に型エラーでズレを検知できる。
+
+型の再生成にはopenapi-typescript 7.13.0を使用した。現在はローカルに存在するツールを利用しており、rootへの依存宣言とクリーン環境での再生成は別途整備が必要。今回は新規依存を追加していない。

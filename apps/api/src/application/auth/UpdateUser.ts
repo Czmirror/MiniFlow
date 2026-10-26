@@ -1,50 +1,22 @@
-import { InputValidationError } from "../errors/InputValidationError.js";
+/** 管理者から受け取ったユーザーprofileの更新値を検証する。管理者認可はHTTP入口が担当する。 */
 import type { UserRepository } from "../ports/UserRepository.js";
 import type { UserRole } from "../../domain/user/User.js";
+import { optionalActive, optionalDisplayName, optionalLanguage, optionalRole, requiredText } from "./validation/profile.js";
 
-export async function updateUser(
-  repository: UserRepository,
-  input: {
-    id: string;
-    displayName?: string | null;
-    language?: "ja" | "en";
-    teamId?: string;
-    role?: UserRole;
-    isActive?: boolean;
-  }
-) {
-  const id = normalizeRequiredString(input.id, "user id");
-  const existingUser = await repository.findById(id);
-  if (!existingUser) {
-    return null;
-  }
-
-  return repository.updateProfile({
+/** 未指定fieldは変更せず、不在ならnull。型・列挙値の違反は400。 */
+export async function updateUser(repository: UserRepository, input: {
+  id: string; displayName?: string | null; language?: "ja" | "en";
+  teamId?: string; role?: UserRole; isActive?: boolean;
+}) {
+  const id = requiredText(input.id, "user id");
+  const update = {
     id,
-    displayName: normalizeOptionalString(input.displayName),
-    language: input.language,
-    teamId: typeof input.teamId === "string" ? normalizeRequiredString(input.teamId, "teamId") : undefined,
-    role: input.role,
-    isActive: input.isActive
-  });
-}
-
-function normalizeRequiredString(value: string, fieldName: string): string {
-  if (typeof value !== "string" || value.trim().length === 0) {
-    throw new InputValidationError(`${fieldName} is required`);
-  }
-
-  return value.trim();
-}
-
-function normalizeOptionalString(value: string | null | undefined): string | null | undefined {
-  if (value === undefined) {
-    return undefined;
-  }
-  if (value === null) {
-    return null;
-  }
-
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
+    displayName: optionalDisplayName(input.displayName),
+    language: optionalLanguage(input.language),
+    teamId: input.teamId === undefined ? undefined : requiredText(input.teamId, "teamId"),
+    role: optionalRole(input.role),
+    isActive: optionalActive(input.isActive)
+  };
+  if (!await repository.findById(id)) return null;
+  return repository.updateProfile(update);
 }

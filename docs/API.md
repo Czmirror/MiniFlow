@@ -1,440 +1,106 @@
-# API Spec: MiniFlow (v0.1)
-
-## 1. 目的
-MiniFlow MVPのHTTP API契約を定義する。\
-本書は `PRD` / `NFR` / `ERD` / `IMPLEMENTATION_GUIDE` と整合する。
-
-## 2. 共通仕様
-- Base URL: `/api/v1`
-- Content-Type: `application/json`
-- 認証:
-  - `httpOnly` cookie による認証
-  - 変更系 API は CSRF token (`x-csrf-token`) が必須
-  - `createdBy` / `actedBy` は current user.id から解決する
-- ID形式: `uuid`
-
-## 3. エラー形式
-```json
-{
-  "error": {
-    "code": "STATE_CONFLICT",
-    "message": "approve is only allowed in Pending",
-    "status": 409
-  }
-}
-```
-
-ステータスコード方針:
-- `400`: 入力不正
-- `403`: 権限不足（ApproverPolicy）
-- `404`: リソース不存在
-- `409`: 状態不整合（Precondition違反）
-- `500`: 予期しない内部エラー
-
-## 4. ドメイン型（API上の表現）
-### 4.1 Request
-```json
-{
-  "id": "uuid",
-  "teamId": "uuid",
-  "title": "string",
-  "body": "string",
-  "status": "Draft|Pending|Approved|Rejected|Deleted",
-  "createdBy": "uuid",
-  "createdAt": "2026-03-01T00:00:00.000Z",
-  "updatedAt": "2026-03-01T00:00:00.000Z",
-  "deletedAt": null
-}
-```
-
-### 4.2 Approval
-```json
-{
-  "id": "uuid",
-  "requestId": "uuid",
-  "actedBy": "uuid",
-  "actionType": "Approved|Rejected",
-  "reason": "string|null",
-  "createdAt": "2026-03-01T00:00:00.000Z"
-}
-```
-
-## 5. エンドポイント
-### 5.1 POST /auth/register
-ユーザーを登録する。
-
-Request:
-```json
-{
-  "email": "demo@example.com",
-  "password": "password1234"
-}
-```
-
-Response `201`:
-```json
-{
-  "user": {
-    "id": "uuid",
-    "email": "demo@example.com"
-  }
-}
-```
-
-Errors: `400`, `409`, `500`
-
-### 5.2 POST /auth/login
-ログインし、認証 cookie と CSRF cookie を発行する。
-
-Request:
-```json
-{
-  "email": "demo@example.com",
-  "password": "password1234"
-}
-```
-
-Response `200`:
-```json
-{
-  "user": {
-    "id": "uuid",
-    "email": "demo@example.com"
-  }
-}
-```
-
-実装メモ:
-- `Set-Cookie` で auth cookie と csrf cookie を返す
-- token は body では返さない
-
-Errors: `400`, `500`
-
-### 5.3 GET /auth/me
-現在のログインユーザーを返す。
-
-Response `200`:
-```json
-{
-  "id": "uuid",
-  "email": "demo@example.com"
-}
-```
-
-Errors: `401`
-
-### 5.4 GET /auth/csrf
-CSRF token を返す。
-
-Response `200`:
-```json
-{
-  "csrfToken": "uuid-like-random-string"
-}
-```
-
-### 5.5 POST /auth/logout
-認証 cookie と csrf cookie を無効化する。
-
-Response `204`
-
-### 5.6 POST /requests
-Draftを作成する。
-
-Request:
-```json
-{
-  "teamId": "team-1",
-  "title": "稟議: ノートPC購入",
-  "body": "業務用端末の更新申請"
-}
-```
-
-Response `201`:
-```json
-{
-  "id": "uuid",
-  "teamId": "team-1",
-  "title": "稟議: ノートPC購入",
-  "body": "業務用端末の更新申請",
-  "status": "Draft",
-  "createdBy": "current-user-uuid",
-  "createdAt": "2026-03-01T00:00:00.000Z",
-  "updatedAt": "2026-03-01T00:00:00.000Z",
-  "deletedAt": null
-}
-```
-
-実装メモ:
-- auth cookie と `x-csrf-token` が必要
-- `createdBy` は current user.id を使う
-- `teamId`, `title`, `body` が必須
-
-Errors: `400`, `401`, `403`, `500`
-
-### 5.7 PATCH /requests/:id
-Draftの内容を更新する（MVPではDraftのみ）。
-
-Request:
-```json
-{
-  "title": "稟議: ノートPC購入（更新）",
-  "body": "業務用端末の更新申請（理由追記）"
-}
-```
-
-Response `200`:
-```json
-{
-  "id": "uuid",
-  "teamId": "team-1",
-  "title": "稟議: ノートPC購入（更新）",
-  "body": "業務用端末の更新申請（理由追記）",
-  "status": "Draft",
-  "createdBy": "current-user-uuid",
-  "createdAt": "2026-03-01T00:00:00.000Z",
-  "updatedAt": "2026-03-01T00:05:00.000Z",
-  "deletedAt": null
-}
-```
-
-実装メモ:
-- `Draft` 以外は `409`
-- `title` または `body` の少なくとも片方が必要
-
-Errors: `400`, `401`, `403`, `404`, `409`, `500`
-
-### 5.8 POST /requests/:id/submit
-`Draft -> Pending`
-
-Response `200`:
-```json
-{
-  "id": "uuid",
-  "teamId": "team-1",
-  "title": "稟議: ノートPC購入",
-  "body": "業務用端末の更新申請",
-  "status": "Pending",
-  "createdBy": "current-user-uuid",
-  "createdAt": "2026-03-01T00:00:00.000Z",
-  "updatedAt": "2026-03-01T00:10:00.000Z",
-  "deletedAt": null
-}
-```
-
-実装メモ:
-- `Draft` からのみ `Pending` へ遷移する
-- 現在は単段承認MVPの前段として submit のみ実装
-
-Errors: `400`, `401`, `403`, `404`, `409`, `500`
-
-### 5.9 POST /requests/:id/approve
-`Pending -> Approved`。成功時にApprovalを1件追加する。
-
-Request:
-```json
-{
-  "reason": "予算内のため承認"
-}
-```
-
-Response `200`:
-```json
-{
-  "id": "uuid",
-  "teamId": "team-1",
-  "title": "稟議: ノートPC購入",
-  "body": "業務用端末の更新申請",
-  "status": "Approved",
-  "createdBy": "current-user-uuid",
-  "createdAt": "2026-03-01T00:00:00.000Z",
-  "updatedAt": "2026-03-01T00:20:00.000Z",
-  "deletedAt": null
-}
-```
-
-実装メモ:
-- `requests.status` 更新と `approvals` 追加は同一 transaction で保存する
-- 今回のレスポンスは `request` のみ返す
-
-Errors: `400`, `401`, `403`, `404`, `409`, `500`
-
-### 5.10 POST /requests/:id/reject
-`Pending -> Rejected`。成功時にApprovalを1件追加する。
-
-Request:
-```json
-{
-  "reason": "金額根拠が不足"
-}
-```
-
-Response `200`:
-```json
-{
-  "id": "uuid",
-  "teamId": "team-1",
-  "title": "稟議: ノートPC購入",
-  "body": "業務用端末の更新申請",
-  "status": "Rejected",
-  "createdBy": "current-user-uuid",
-  "createdAt": "2026-03-01T00:00:00.000Z",
-  "updatedAt": "2026-03-01T00:20:00.000Z",
-  "deletedAt": null
-}
-```
-
-実装メモ:
-- `requests.status` 更新と `approvals` 追加は同一 transaction で保存する
-- 今回のレスポンスは `request` のみ返す
-
-Errors: `400`, `401`, `403`, `404`, `409`, `500`
-
-### 5.11 POST /requests/:id/revise
-`Rejected -> Draft`（同一Requestを戻す）。MVPではApprovalを追加しない。
-
-Response `200`:
-```json
-{
-  "id": "uuid",
-  "teamId": "team-1",
-  "title": "稟議: ノートPC購入",
-  "body": "業務用端末の更新申請",
-  "status": "Draft",
-  "createdBy": "current-user-uuid",
-  "createdAt": "2026-03-01T00:00:00.000Z",
-  "updatedAt": "2026-03-01T00:40:00.000Z",
-  "deletedAt": null
-}
-```
-
-Errors: `400`, `401`, `403`, `404`, `409`, `500`
-
-### 5.12 POST /requests/:id/delete
-論理削除。`Draft/Rejected -> Deleted`
-
-Response `200`:
-```json
-{
-  "id": "uuid",
-  "teamId": "team-1",
-  "title": "稟議: ノートPC購入",
-  "body": "業務用端末の更新申請",
-  "status": "Deleted",
-  "createdBy": "current-user-uuid",
-  "createdAt": "2026-03-01T00:00:00.000Z",
-  "updatedAt": "2026-03-01T00:50:00.000Z",
-  "deletedAt": "2026-03-01T00:50:00.000Z"
-}
-```
-
-Errors: `400`, `401`, `403`, `404`, `409`, `500`
-
-### 5.13 GET /requests
-一覧検索。デフォルトでDeletedは非表示。
-
-Query:
-- `teamId` (required)
-- `status` (optional)
-- `from` (optional, ISO8601)
-- `to` (optional, ISO8601)
-- `includeDeleted` (optional, default `false`)
-- `page` (optional, default `1`)
-- `limit` (optional, default `20`, max `100`)
-
-Response `200`:
-```json
-{
-  "items": [
-    {
-      "id": "uuid",
-      "teamId": "team-1",
-      "title": "稟議: ノートPC購入",
-      "body": "業務用端末の更新申請",
-      "status": "Draft",
-      "createdBy": "current-user-uuid",
-      "createdAt": "2026-03-01T00:00:00.000Z",
-      "updatedAt": "2026-03-01T00:00:00.000Z",
-      "deletedAt": null
-    }
-  ],
-  "page": 1,
-  "limit": 20,
-  "total": 0
-}
-```
-
-実装メモ:
-- `teamId` は必須
-- `status` を省略した場合、`Deleted` は除外される
-- `includeDeleted=true` を付けると `Deleted` も対象に含める
-
-Errors: `400`, `500`
-
-### 5.14 GET /requests/:id
-Request詳細を取得する。
-
-Response `200`:
-```json
-{
-  "request": {
-    "id": "uuid",
-    "teamId": "team-1",
-    "title": "稟議: ノートPC購入",
-    "body": "業務用端末の更新申請",
-    "status": "Approved",
-    "createdBy": "current-user-uuid",
-    "createdAt": "2026-03-01T00:00:00.000Z",
-    "updatedAt": "2026-03-01T00:20:00.000Z",
-    "deletedAt": null
-  },
-  "approvals": [
-    {
-      "id": "uuid",
-      "requestId": "uuid",
-      "actedBy": "current-user-uuid",
-      "actionType": "Approved",
-      "reason": "予算内のため承認",
-      "createdAt": "2026-03-01T00:20:00.000Z"
-    }
-  ]
-}
-```
-
-実装メモ:
-- 詳細APIだけ `request` と `approvals` を分けて返す
-- 一覧APIは軽量化のため `approvals` を含めない
-
-Errors: `400`, `404`, `500`
-
-## 6. 状態遷移APIマッピング
-- `submit` : Draftのみ許可
-- `approve/reject` : Pendingのみ許可
-- `revise` : Rejectedのみ許可
-- `delete` : Draft/Rejectedのみ許可
-- `update` : Draftのみ許可
-- 終端（Approved/Deleted）は変更系操作をすべて409で拒否
-
-## 7. トランザクション要件
-- `/approve` と `/reject`:
-  - `requests.status` 更新
-  - `approvals` 追加
-  - 上記を同一トランザクションで実行
-- `/delete`:
-  - `status=Deleted`
-  - `deletedAt` 設定
-  - 上記を同一トランザクションで実行
-
-## 8. 監査ログ要件（API起点）
-変更系APIでは次をログ記録する:
-- `requestId`
-- `teamId`
-- `actorId`
-- `action`
-- `timestamp`
-
-## 9. 関連ドキュメント
-- [PRD.md](/Users/admin/WebPortfolio/MiniFlow/docs/PRD.md)
-- [NFR.md](/Users/admin/WebPortfolio/MiniFlow/docs/NFR.md)
-- [ERD.md](/Users/admin/WebPortfolio/MiniFlow/docs/ERD.md)
-- [IMPLEMENTATION_GUIDE.md](/Users/admin/WebPortfolio/MiniFlow/docs/IMPLEMENTATION_GUIDE.md)
+# MiniFlow HTTP API
+
+2026-10-26更新。現在の契約の正本はこの文書と [OpenAPI](openapi.yaml)。公開signupは提供しない。
+型の生成先は `src/shared/api-types.ts`、Web/API間の共有型は `packages/shared/src/index.ts`。
+
+## 認証・セッション
+
+- `POST /auth/login` はemail/passwordを検証し、`miniflow_auth` と `miniflow_csrf` のcookieを返す。
+- JWTの有効期限は発行後8時間。認証cookieも8時間。JWTにはsub（user ID）、sv（認証世代）、iat、expを含め、emailは含めない。
+- auth cookieはhttpOnly、SameSite=Lax、path=/。productionではSecure。CSRF cookieはJavaScriptから読める以外は同じ寿命・属性。
+- 認証のたびに署名・期限・世代と、現在のuserの有効状態を検査する。期限/世代のない旧token、期限切れ、世代不一致、無効ユーザーは401。
+- password変更はhash更新とsessionVersionのincrementを同じ保存操作で行い、操作中を含む全セッションを失効させる。応答でcookieを削除し、画面は再ログインへ戻る。
+- `POST /auth/logout` はそのブラウザのcookieを削除する。他のブラウザや複製済みtokenの失効操作ではない。
+- `GET /auth/csrf` は認証後にCSRF tokenを取得する。token方式自体の変更と複数タブの取得競合対策は後続段階。
+
+## HTTPの信頼境界
+
+APIのHostは設定の許可リストと完全一致で照合する。状態変更でOriginがある場合、CORS_ORIGINのscheme/host/portと完全一致しなければ403。`Origin: null` も拒否する。
+Originなしの非ブラウザ要求を許容しても、保護endpointの認証・CSRF検査は省略しない。CORSはcredentials付きで明示したOriginとGET/HEAD/POST/PATCHを許可する。
+CORSの読取制限を認証やCSRF防御の代わりに扱わない。
+
+## エンドポイント
+
+「保護」は認証を要求し、「変更」はさらにcookieと一致する `x-csrf-token` を要求する。
+
+| Method/path | 認可・入力 | 成功 |
+| --- | --- | --- |
+| GET /health | DBの接続状態 | 200、status/service/db |
+| POST /auth/login | email、password | 200、{user}とcookie |
+| POST /auth/logout | 保護・変更 | 204、cookie削除 |
+| GET /auth/me | 保護 | 200、AuthUser |
+| GET /auth/csrf | 保護 | 200、{csrfToken} |
+| PATCH /account | 保護・変更、displayName/language | 200、AuthUser |
+| POST /account/password | 保護・変更、currentPassword/newPassword | 200、AuthUser、全失効とcookie削除 |
+| GET /users | 保護、Adminのみ | 200、{items: UserManagement[]} |
+| POST /users | 保護・変更、Adminのみ、email/passwordと任意profile | 201、UserManagement |
+| PATCH /users/:id | 保護・変更、Adminのみ、UUIDと任意profile/team/role/isActive | 200、UserManagement |
+| POST /requests | 保護・変更、title/body | 201、Request（Draft） |
+| GET /requests | 保護、認証userのteamで絞る | 200、{items,page,limit,total} |
+| GET /requests/:id | 保護、同じteam | 200、{request,approvals} |
+| PATCH /requests/:id | 保護・変更、同teamの作成者またはAdmin、Draftのみ | 200、Request |
+| POST /requests/:id/submit | 保護・変更、同teamの作成者またはAdmin、Draftのみ | 200、Pending |
+| POST /requests/:id/approve | 保護・変更、同teamのApprover/Admin、自分の申請は不可、Pendingのみ | 200、Approved |
+| POST /requests/:id/reject | 保護・変更、同teamのApprover/Admin、自分の申請は不可、Pendingのみ | 200、Rejected |
+| POST /requests/:id/revise | 保護・変更、同teamの作成者またはAdmin、Rejectedのみ | 200、Draft |
+| POST /requests/:id/delete | 保護・変更、同teamの作成者またはAdmin、Draft/Rejectedのみ | 200、Deleted |
+
+旧 `POST /auth/register` は廃止し404を返す。初期管理者は [運用手順](runbook.md) のローカルCLIで作成する。Adminのユーザー管理範囲は全ユーザーであり、今回team限定Adminへ変更しない。
+
+## 入力契約
+
+| field | 条件・省略・正規化 |
+| --- | --- |
+| email | string必須。trim/lowercaseし、既存のemail形式を検証 |
+| password/currentPassword/newPassword | string必須、8文字以上。trimしない。新しい強度規則や上限は加えない |
+| displayName | string/null。stringはtrim、空白はnull。PATCHで未指定なら維持、nullは削除 |
+| language | ja/enのみ。作成は省略時ja、PATCHは省略時維持。nullは拒否 |
+| role | Applicant/Approver/Adminのみ。作成は省略時Applicant、PATCHは省略時維持 |
+| teamId（ユーザー管理） | 非空stringをtrim。作成の省略時は既存のteam-1を維持。PATCH省略は維持 |
+| isActive | PATCHでbooleanのみ。falseを未指定と混同しない |
+| user/requestのpath id | UUIDの構造を検証する。内部usecaseのID契約は変更しない |
+| request title/body | string、作成は両方、PATCHは少なくとも一方。trimして空白のみを400で拒否 |
+| approve/reject reason | string、省略可能。本文は現行どおり保持、nullは拒否 |
+| status | Draft/Pending/Approved/Rejected/Deletedのいずれか |
+| page/limit | 正の整数。pageと計算後のoffsetはJavaScriptで正確に表現できる範囲。limit最大100。省略時1/20、空文字は拒否 |
+| includeDeleted | true/falseの文字列のみ。省略時false |
+| from/to | Date.parseで有効な日時文字列。厳密ISO化や期間の前後関係の追加制約は今回加えない |
+
+型違い・未知の列挙値・不正UUIDは400で拒否する。未知fieldは互換性のため無視し、許可fieldだけを明示的にusecaseへ渡す。
+申請のteamId/createdBy/actedByと権限は認証状態から解決し、body/queryの指定を認可の根拠にしない。
+本文・理由・表示名に新しい長さ上限、制御文字制限、Unicode正規化を勝手に導入しない。
+
+## DTOとエラー
+
+- AuthUser: id/email/displayName/language/teamId/role/isActive。passwordHashとsessionVersionは返さない。
+- UserManagement: AuthUserにcreatedAt/updatedAtをISO文字列で加える。
+- Request: id/teamId/createdBy/title/body/status/createdAt/updatedAt/deletedAt。詳細だけapprovalsを別配列で返す。
+- Approval: id/requestId/actedBy/actionType/reason/createdAt。
+
+エラーは `{error:{code,message,status}}`。400は入力違反、401は認証拒否、403は権限・Host/Origin・CSRF拒否、404は不在、409は状態違反・重複email、500は内部障害。
+入力の生値・秘密・ORM例外を応答へ出さない。認証保存先の障害は401に偽装せず500とする。
+
+## 状態と保存
+
+submitはDraft→Pending、approve/rejectはPending→Approved/Rejected、reviseはRejected→Draft。差し戻し履歴は同じ申請で保持し、再提出後は同じ承認者が再決定できる。
+Approved/Deletedは終端。deleteはstatusとdeletedAtを同時に変更し、approve/rejectは状態変更と履歴追加を同一transactionに置く。
+現在の保存処理に対する並行更新の競合検知は次段階の課題で、この変更によって解消したとは扱わない。
+
+## 第2段階の受け入れ条件
+
+| ID | 確認する契約 |
+| --- | --- |
+| AC1 | 公開signup廃止、ユーザー作成/所属割当はAdmin限定 |
+| AC2 | JWT_SECRETの未設定・空を拒否し固定鍵へfallbackしない |
+| AC3 | JWT/cookieは8時間、期限/世代のない旧tokenを拒否 |
+| AC4 | password変更成功で全セッション失効、操作画面も再ログインへ戻る |
+| AC5 | PATCHの未指定維持とdisplayName:nullによる削除を区別 |
+| AC6 | 不正型・列挙値・UUIDを400で拒否し、既存の所有/role/team判定を維持 |
+| AC7 | 許可Host/Originの要求を通し、未知Host・別Origin/nullを拒否 |
+| AC8 | ローカルCLIからAdminを新規作成し、既存emailを上書きせず秘密を出力しない |
+| AC9 | API/OpenAPI/型/試験の契約を揃え、未実施範囲を成功と混同しない |
+
+## 試験と運用
+
+機能試験は [認証境界](tests/functional/auth-input-boundaries.md)、単体試験は [認証入力と永続化](tests/unit/auth-input-boundaries.md)。
+DBのsessionVersion追加はmigrationファイルを用意するが、既存DBへの適用は別操作。適用前後の運用と初期Admin作成は [runbook](runbook.md) を参照する。

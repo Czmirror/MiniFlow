@@ -15,6 +15,8 @@ COPY packages/shared packages/shared
 
 WORKDIR /app/apps/api
 
+ENV HOST=0.0.0.0
+
 EXPOSE 3001
 
 CMD ["pnpm", "dev"]

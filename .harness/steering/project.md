@@ -112,3 +112,14 @@ Do NOT implement:
 ## 既知の問題
 
 全体レビューと段階的な改善計画は `docs/work/harness-source-review/`。第1段階は検証依存・テスト移行・書式修正のみ。公開registerと要件の衝突、入力・認証・競合・UIの課題は後続段階で扱い、この段階で仕様を変更しない。過去の課題一覧には対処済み項目も含まれ、実装状況はレビュー記録と照合する。
+
+## 第2段階の変更
+
+- `presentation/http/createHttpServer.ts`: Host/Origin・入力schema・認証pluginとrouteを組み立てる。保存先を注入し、実DBの組立はserver.tsに残す。
+- `presentation/http/validation/schemas.ts` と `application/auth/validation/profile.ts`: HTTP構造とauth profileの条件。
+- `cli/adminCommand.ts` / `cli/createAdmin.ts`: 管理者CLIの入力処理とローカル実行。公開signupは削除。旧Web AuthPanelも削除。
+- `tests/support/http.ts`: 実HTTPへ接続するメモリ保存先と架空ユーザー。
+- JWTは8時間、password変更は認証世代を増やして全失効。設定・適用・初期Admin作成は `docs/runbook.md`。
+- sessionVersion migrationはファイル作成のみ。実DBへの適用・実ユーザー作成は未実施。
+- 第2段階の仕様・試験・記録は `docs/API.md`、`docs/tests/`、`docs/work/auth-input-boundaries/`。
+- `apps/web/src/lib/apiTransport.ts`: WebのHTTP失敗statusとCSRFキャッシュを保持する。401を受けた画面は認証stateを破棄してログインへ戻る。

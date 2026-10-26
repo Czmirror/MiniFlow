@@ -5,7 +5,8 @@ export type HealthResponse = {
 };
 
 export type CreateRequestInput = {
-  teamId: string;
+  /** 表示互換用。APIでは認証ユーザーのチームを使い、この値を無視する。 */
+  teamId?: string;
   title: string;
   body: string;
 };
@@ -36,14 +37,6 @@ export type ApprovalDto = {
 export type RequestDetailDto = {
   request: RequestDto;
   approvals: ApprovalDto[];
-};
-
-export type RegisterInput = {
-  email: string;
-  password: string;
-  displayName?: string;
-  language?: "ja" | "en";
-  teamId?: string;
 };
 
 export type LoginInput = {
@@ -89,8 +82,8 @@ export type CreateUserInput = {
   password: string;
   displayName?: string | null;
   language?: "ja" | "en";
-  teamId: string;
-  role: UserRole;
+  teamId?: string;
+  role?: UserRole;
 };
 
 export type UpdateUserInput = {

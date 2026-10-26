@@ -1,6 +1,6 @@
-import { randomUUID } from "node:crypto";
+/** 認証・管理者のユーザー操作をHTTPへ公開する。公開signupは提供しない。 */
 import type { FastifyInstance } from "fastify";
-import type { PrismaClient } from "@prisma/client";
+import type { UserRepository } from "../../../application/ports/UserRepository.js";
 import { InputValidationError } from "../../../application/errors/InputValidationError.js";
 import { StateConflictError } from "../../../application/errors/StateConflictError.js";
 import { AuthorizationError } from "../../../application/errors/AuthorizationError.js";
@@ -11,44 +11,14 @@ import { listUsers } from "../../../application/auth/ListUsers.js";
 import { updateAccount } from "../../../application/auth/UpdateAccount.js";
 import { updateUser } from "../../../application/auth/UpdateUser.js";
 import { createCsrfToken } from "../../../infrastructure/auth/csrf.js";
-import { AUTH_COOKIE_NAME, CSRF_COOKIE_NAME } from "../../../infrastructure/auth/jwt.js";
-import { PrismaUserRepository } from "../../../infrastructure/repositories/PrismaUserRepository.js";
+import { AUTH_COOKIE_NAME, CSRF_COOKIE_NAME, SESSION_TTL_SECONDS } from "../../../infrastructure/auth/jwt.js";
+import { loginSchema, accountSchema, passwordSchema, createUserSchema, userUpdateSchema } from "../validation/schemas.js";
 
 /**
  * Auth routes own cookie issuance and csrf token setup. Keep workflow routes free from these concerns.
  */
-export function registerAuthRoutes(server: FastifyInstance, prisma: PrismaClient) {
-  const repository = new PrismaUserRepository(prisma);
-
-  server.post("/auth/register", async (request, reply) => {
-    const body = (request.body ?? {}) as Partial<{
-      email: string;
-      password: string;
-      displayName: string | null;
-      language: "ja" | "en";
-      teamId: string;
-      role: "Applicant" | "Approver" | "Admin";
-    }>;
-
-    try {
-      const user = await registerUser(repository, {
-        email: body.email ?? "",
-        password: body.password ?? "",
-        displayName: body.displayName,
-        language: body.language,
-        teamId: "team-1",
-        role: "Applicant"
-      });
-
-      return reply.code(201).send({
-        user: toAuthUserDto(user)
-      });
-    } catch (error) {
-      return handleAuthError(reply, error, "failed to register");
-    }
-  });
-
-  server.post("/auth/login", async (request, reply) => {
+export function registerAuthRoutes(server: FastifyInstance, repository: UserRepository) {
+  server.post("/auth/login", { schema: loginSchema }, async (request, reply) => {
     const body = (request.body ?? {}) as Partial<{ email: string; password: string }>;
 
     try {
@@ -58,7 +28,7 @@ export function registerAuthRoutes(server: FastifyInstance, prisma: PrismaClient
       });
 
       const csrfToken = createCsrfToken();
-      const jwt = await reply.jwtSign({ sub: user.id, email: user.email });
+      const jwt = await reply.jwtSign({ sub: user.id, sv: user.sessionVersion });
 
       setAuthCookies(reply, jwt, csrfToken);
 
@@ -89,7 +59,7 @@ export function registerAuthRoutes(server: FastifyInstance, prisma: PrismaClient
     return reply.send(request.currentUser);
   });
 
-  server.patch("/account", { preHandler: [server.requireAuth, server.requireCsrf] }, async (request, reply) => {
+  server.patch("/account", { schema: accountSchema, preHandler: [server.requireAuth, server.requireCsrf] }, async (request, reply) => {
     const body = (request.body ?? {}) as Partial<{ displayName: string | null; language: "ja" | "en" }>;
 
     try {
@@ -113,7 +83,7 @@ export function registerAuthRoutes(server: FastifyInstance, prisma: PrismaClient
     }
   });
 
-  server.post("/account/password", { preHandler: [server.requireAuth, server.requireCsrf] }, async (request, reply) => {
+  server.post("/account/password", { schema: passwordSchema, preHandler: [server.requireAuth, server.requireCsrf] }, async (request, reply) => {
     const body = (request.body ?? {}) as Partial<{ currentPassword: string; newPassword: string }>;
 
     try {
@@ -131,6 +101,7 @@ export function registerAuthRoutes(server: FastifyInstance, prisma: PrismaClient
         return reply.code(404).send(notFound("user not found"));
       }
 
+      clearAuthCookies(reply);
       return reply.send(toAuthUserDto(user));
     } catch (error) {
       return handleAuthError(reply, error, "failed to change password");
@@ -152,7 +123,7 @@ export function registerAuthRoutes(server: FastifyInstance, prisma: PrismaClient
     }
   });
 
-  server.post("/users", { preHandler: [server.requireAuth, server.requireCsrf] }, async (request, reply) => {
+  server.post("/users", { schema: createUserSchema, preHandler: [server.requireAuth, server.requireCsrf] }, async (request, reply) => {
     const body = (request.body ?? {}) as Partial<{
       email: string;
       password: string;
@@ -182,7 +153,7 @@ export function registerAuthRoutes(server: FastifyInstance, prisma: PrismaClient
     }
   });
 
-  server.patch("/users/:id", { preHandler: [server.requireAuth, server.requireCsrf] }, async (request, reply) => {
+  server.patch("/users/:id", { schema: userUpdateSchema, preHandler: [server.requireAuth, server.requireCsrf] }, async (request, reply) => {
     const params = request.params as { id?: string };
     const body = (request.body ?? {}) as Partial<{
       displayName: string | null;
@@ -230,6 +201,7 @@ function clearAuthCookies(reply: import("fastify").FastifyReply) {
 function authCookieOptions() {
   return {
     path: "/",
+    maxAge: SESSION_TTL_SECONDS,
     httpOnly: true,
     sameSite: "lax" as const,
     secure: process.env.NODE_ENV === "production"
@@ -239,6 +211,7 @@ function authCookieOptions() {
 function csrfCookieOptions() {
   return {
     path: "/",
+    maxAge: SESSION_TTL_SECONDS,
     httpOnly: false,
     sameSite: "lax" as const,
     secure: process.env.NODE_ENV === "production"

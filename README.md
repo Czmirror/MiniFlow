@@ -109,18 +109,7 @@ Manual check:
 curl http://localhost:3001/health
 ```
 
-Register and login check:
-```bash
-curl -X POST http://localhost:3001/auth/register \
-  -H 'content-type: application/json' \
-  -d '{"email":"demo@example.com","password":"password1234"}'
-```
-
-```bash
-curl -i -X POST http://localhost:3001/auth/login \
-  -H 'content-type: application/json' \
-  -d '{"email":"demo@example.com","password":"password1234"}'
-```
+公開登録は提供しません。APIの起動前に `JWT_SECRET` を環境から渡し、必要なschema適用と初期管理者の作成を [ローカル運用手順](docs/runbook.md) に従って行ってください。schema適用と実際の管理者作成は、コード生成とは別のDB操作です。
 
 ## Start the web app
 In another terminal:
@@ -131,18 +120,18 @@ pnpm dev:web
 
 Open [http://localhost:3100](http://localhost:3100), then:
 1. run the health check
-2. login or register from the auth panel
+2. 管理者が作成したアカウントでログインする
 3. create a draft request
 4. inspect and transition requests from the workflow panel
 
 ## Notes
 - Auth now uses `httpOnly` cookie + CSRF token instead of `localStorage`.
-- This is still a minimal auth slice. It does not yet implement roles, team membership, or `ApproverPolicy`.
+- 認証は8時間で期限切れになり、パスワード変更時は全セッションが失効します。ユーザー・所属・roleは管理者が管理します。
 - The API implementation and its tests use `apps/api/src`. The old root-level domain/application prototype has been removed after migrating its tests.
 - The workflow panel is intentionally a verification UI. It is not yet a polished product screen.
 
 ## Next steps
-- Introduce `ApproverPolicy` after actor resolution is stable
+- RoleとApproverPolicyの責務整理は、実装済みの認可条件を保った別計画で扱う
 - Replace the verification-oriented workflow UI with dedicated request screens
 - Expand auth from simple current-user resolution into real authorization rules
 

@@ -1,9 +1,11 @@
+/** 設定されたbind先でAPIを起動する。ローカルの既定はloopbackのみ。 */
 import { buildServer } from "./presentation/http/server.js";
 
-const port = Number(process.env.PORT ?? 3001);
-const host = "0.0.0.0";
+import { getEnv } from "./infrastructure/config/env.js";
 
-const server = await buildServer();
+const env = getEnv();
+const { port, host } = env;
+const server = await buildServer(env);
 
 try {
   await server.listen({ port, host });

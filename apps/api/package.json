@@ -10,7 +10,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
-    "db:push": "prisma db push"
+    "db:push": "prisma db push",
+    "admin:create": "node --import tsx src/cli/createAdmin.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",
