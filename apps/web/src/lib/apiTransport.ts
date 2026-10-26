@@ -1,8 +1,9 @@
-/** WebのAPI応答とCSRFヘッダーを扱う。401では保持中のCSRF tokenを破棄し、画面へHTTP statusを渡す。 */
+/** WebのAPI応答とCSRFヘッダーを扱う。401では未完了のCSRF取得を無効化し、画面へHTTP statusを渡す。 */
 import type { CsrfTokenDto } from "@miniflow/shared";
 
-// このブラウザのログイン中だけ保持する。401・ログアウト・password変更時に破棄する。
-let csrfTokenCache: string | null = null;
+// 未完了の同時取得だけを共有する。完了tokenを長期保持せず、別タブの再ログインにも追随する。
+let csrfRequest: { baseUrl: string; generation: number; promise: Promise<string> } | null = null;
+let sessionGeneration = 0;
 
 /** APIの失敗をHTTP status付きで伝える。通信失敗は元の例外として扱う。 */
 export class ApiError extends Error {
@@ -12,22 +13,30 @@ export class ApiError extends Error {
   }
 }
 
-/** 現在の認証に対応するCSRF tokenを忘れ、次回はAPIから取得する。 */
+/** 現在の認証に対応する未完了のCSRF取得を無効化する。 */
 export function clearCsrfToken(): void {
-  csrfTokenCache = null;
+  sessionGeneration++;
+  csrfRequest = null;
 }
 
-/** cookie認証の更新要求に必要なCSRF tokenを取得・保持する。失敗時は送信を続けない。 */
+/** cookie認証の更新要求に必要なCSRF tokenを更新前に取得する。失敗時は送信を続けない。 */
 export async function csrfHeaders(apiBaseUrl: string): Promise<Record<string, string>> {
-  if (!csrfTokenCache) {
-    const response = await fetch(`${apiBaseUrl}/auth/csrf`, {
-      credentials: "include",
-      cache: "no-store"
-    });
-    const csrf = await parseResponse<CsrfTokenDto>(response);
-    csrfTokenCache = csrf.csrfToken;
+  const generation = sessionGeneration;
+  let pending = csrfRequest;
+  if (!pending || pending.baseUrl !== apiBaseUrl || pending.generation !== generation) {
+    const promise = fetch(`${apiBaseUrl}/auth/csrf`, { credentials: "include", cache: "no-store" })
+      .then(response => parseResponse<CsrfTokenDto>(response)).then(csrf => csrf.csrfToken);
+    pending = { baseUrl: apiBaseUrl, generation, promise };
+    csrfRequest = pending;
   }
-  return { "x-csrf-token": csrfTokenCache };
+  try {
+    const token = await pending.promise;
+    // logoutや401のあとに古い取得が完了しても、その値で更新要求を送らない。
+    if (generation !== sessionGeneration) throw new ApiError("authentication changed; log in again", 401);
+    return { "x-csrf-token": token };
+  } finally {
+    if (csrfRequest === pending) csrfRequest = null;
+  }
 }
 
 /** JSON応答を読み、失敗はstatus付きの例外にする。401は応答本文が壊れていても認証失効として扱う。 */

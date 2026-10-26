@@ -15,7 +15,7 @@ export interface paths {
         put?: never;
         /**
          * Login user and set auth cookies
-         * @description JWT and cookies expire after 8 hours. JWT contains a session version. Legacy tokens without expiry/version are rejected.
+         * @description JWT and cookies expire after 8 hours. JWT contains a session version and a per-login identifier. Legacy tokens without expiry/version/session identifier are rejected.
          */
         post: operations["loginUser"];
         delete?: never;
@@ -65,7 +65,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Issue CSRF token */
+        /** Get the stable session-bound CSRF token without changing cookies */
         get: operations["getCsrfToken"];
         put?: never;
         post?: never;
@@ -325,6 +325,7 @@ export interface components {
             password: string;
         };
         CsrfToken: {
+            /** @description Stable within the current authenticated login session. */
             csrfToken: string;
         };
         CreateRequestBody: {

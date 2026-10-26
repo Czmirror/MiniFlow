@@ -21,29 +21,32 @@ describe("認証・入力のHTTP契約", () => {
   });
 
   it("期限切れ・世代なし・不一致・署名不正のtokenは401", async () => {
-    const encoded = [Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url"), Buffer.from(JSON.stringify({ sub: userIds.Applicant, sv: 0 })).toString("base64url")].join(".");
+    const sid = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
+    const encoded = [Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url"), Buffer.from(JSON.stringify({ sub: userIds.Applicant, sv: 0, sid })).toString("base64url")].join(".");
     const expiryless = `${encoded}.${createHmac("sha256", f.env.jwtSecret).update(encoded).digest("base64url")}`;
     const tokens = [
       expiryless,
-      f.server.jwt.sign({ sub: userIds.Applicant, sv: 0 }, { expiresIn: -1 }),
-      f.server.jwt.sign({ sub: userIds.Applicant }),
-      f.server.jwt.sign({ sub: userIds.Applicant, sv: 99 }),
+      f.server.jwt.sign({ sub: userIds.Applicant, sv: 0, sid }, { expiresIn: -1 }),
+      f.server.jwt.sign({ sub: userIds.Applicant, sid }),
+      f.server.jwt.sign({ sub: userIds.Applicant, sv: 0 }),
+      f.server.jwt.sign({ sub: userIds.Applicant, sv: 99, sid }),
       "invalid-token"
     ];
     for (const token of tokens) expect((await f.server.inject({ url: url("/auth/me"), headers: { cookie: `miniflow_auth=${token}` } })).statusCode).toBe(401);
   });
 
   it("password変更は全tokenを失効させ、cookieを削除する", async () => {
-    const first = await f.login();
-    const second = await f.login();
+    const [first, second] = await Promise.all([f.login(), f.login()]);
     const result = await f.server.inject({ method: "POST", url: url("/account/password"), headers: first, payload: { currentPassword: testPassword, newPassword: "new-fixture-password" } });
     expect(result.statusCode).toBe(200);
     expect(result.cookies.find(c => c.name === "miniflow_auth")?.value).toBe("");
     for (const headers of [first, second]) expect((await f.server.inject({ url: url("/auth/me"), headers })).statusCode).toBe(401);
     expect((await f.users.findById(userIds.Applicant))?.sessionVersion).toBe(1);
-    const oldLogin = await f.server.inject({ method: "POST", url: url("/auth/login"), payload: { email: "applicant@example.test", password: testPassword } });
+    const [oldLogin, newLogin] = await Promise.all([
+      f.server.inject({ method: "POST", url: url("/auth/login"), payload: { email: "applicant@example.test", password: testPassword } }),
+      f.server.inject({ method: "POST", url: url("/auth/login"), payload: { email: "applicant@example.test", password: "new-fixture-password" } })
+    ]);
     expect(oldLogin.statusCode).toBe(400);
-    const newLogin = await f.server.inject({ method: "POST", url: url("/auth/login"), payload: { email: "applicant@example.test", password: "new-fixture-password" } });
     expect(newLogin.statusCode).toBe(200);
   });
 

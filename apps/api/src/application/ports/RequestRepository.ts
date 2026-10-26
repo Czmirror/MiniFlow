@@ -18,7 +18,9 @@ export type NormalizedListRequestsInput = {
  */
 export interface RequestRepository {
   create(request: Request): Promise<Request>;
+  /** 取得versionが一致するときだけ保存・incrementする。不一致はStateConflictError。 */
   update(request: Request): Promise<Request>;
+  /** 条件付き状態更新と履歴追加を同一transactionで保存する。 */
   approve(request: Request, approval: Approval): Promise<Request>;
   reject(request: Request, approval: Approval): Promise<Request>;
   findById(id: string): Promise<Request | null>;

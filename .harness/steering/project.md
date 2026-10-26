@@ -123,3 +123,11 @@ Do NOT implement:
 - sessionVersion migrationはファイル作成のみ。実DBへの適用・実ユーザー作成は未実施。
 - 第2段階の仕様・試験・記録は `docs/API.md`、`docs/tests/`、`docs/work/auth-input-boundaries/`。
 - `apps/web/src/lib/apiTransport.ts`: WebのHTTP失敗statusとCSRFキャッシュを保持する。401を受けた画面は認証stateを破棄してログインへ戻る。
+
+## 第3段階の変更
+
+- Requestの保存versionはrepositoryが成功時だけincrementし、全申請更新で比較する。DTOは内部versionを公開しない。
+- `infrastructure/auth/csrf.ts`はログインsessionに結び付けたHMACを扱い、Web apiTransportは未完了の同時取得だけ共有する。
+- `presentation/http/operationEvents.ts`は応答完了後の業務イベントを固定fieldで記録する。
+- `tests/integration/requestConcurrency.integration.ts`は専用DBへの明示起動用。既存.envを使わず、承認された使い捨てDBに限定する。
+- 第3段階の仕様はdocs/API.md、試験はdocs/tests、計画と記録はdocs/work/concurrency-csrf。

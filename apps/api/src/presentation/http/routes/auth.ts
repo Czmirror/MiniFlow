@@ -1,4 +1,5 @@
 /** 認証・管理者のユーザー操作をHTTPへ公開する。公開signupは提供しない。 */
+import { randomUUID } from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import type { UserRepository } from "../../../application/ports/UserRepository.js";
 import { InputValidationError } from "../../../application/errors/InputValidationError.js";
@@ -17,7 +18,7 @@ import { loginSchema, accountSchema, passwordSchema, createUserSchema, userUpdat
 /**
  * Auth routes own cookie issuance and csrf token setup. Keep workflow routes free from these concerns.
  */
-export function registerAuthRoutes(server: FastifyInstance, repository: UserRepository) {
+export function registerAuthRoutes(server: FastifyInstance, repository: UserRepository, csrfSecret: string) {
   server.post("/auth/login", { schema: loginSchema }, async (request, reply) => {
     const body = (request.body ?? {}) as Partial<{ email: string; password: string }>;
 
@@ -27,8 +28,9 @@ export function registerAuthRoutes(server: FastifyInstance, repository: UserRepo
         password: body.password ?? ""
       });
 
-      const csrfToken = createCsrfToken();
-      const jwt = await reply.jwtSign({ sub: user.id, sv: user.sessionVersion });
+      const sid = randomUUID();
+      const csrfToken = createCsrfToken(csrfSecret, sid);
+      const jwt = await reply.jwtSign({ sub: user.id, sv: user.sessionVersion, sid });
 
       setAuthCookies(reply, jwt, csrfToken);
 
@@ -45,10 +47,11 @@ export function registerAuthRoutes(server: FastifyInstance, repository: UserRepo
     return reply.code(204).send();
   });
 
-  server.get("/auth/csrf", { preHandler: [server.requireAuth] }, async (_request, reply) => {
-    const csrfToken = createCsrfToken();
-    reply.setCookie(CSRF_COOKIE_NAME, csrfToken, csrfCookieOptions());
-    return reply.send({ csrfToken });
+  server.get("/auth/csrf", { preHandler: [server.requireAuth] }, async (request, reply) => {
+    // 認証pluginが署名を検証した識別子だけを使い、GETで共有cookieを更新しない。
+    if (!request.sessionId) return reply.code(401).send(unauthorized());
+    const csrfToken = createCsrfToken(csrfSecret, request.sessionId);
+    return reply.header("Cache-Control", "no-store").send({ csrfToken });
   });
 
   server.get("/auth/me", { preHandler: [server.requireAuth] }, async (request, reply) => {

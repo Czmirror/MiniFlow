@@ -376,7 +376,6 @@ function handleRouteError(
     });
   }
 
-  request.log.error({ event: "request_operation_failure", requestId: request.id }, "request operation failed");
 
   return reply.code(500).send({
     error: {

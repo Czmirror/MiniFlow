@@ -2,7 +2,8 @@
 import cookie from "@fastify/cookie";
 import cors from "@fastify/cors";
 import jwt from "@fastify/jwt";
-import Fastify from "fastify";
+import Fastify, { type FastifyServerOptions } from "fastify";
+import { recordOperation } from "./operationEvents.js";
 import type { AppEnv } from "../../infrastructure/config/env.js";
 import type { UserRepository } from "../../application/ports/UserRepository.js";
 import type { RequestRepository } from "../../application/ports/RequestRepository.js";
@@ -13,10 +14,11 @@ import { registerRequestRoutes } from "./routes/requests.js";
 
 /** 検証済み設定と保存先でHTTPを構築する。listenやDB接続は行わない。 */
 export async function createHttpServer(options: {
-  env: AppEnv; userRepository: UserRepository; requestRepository: RequestRepository; logger?: boolean;
+  env: AppEnv; userRepository: UserRepository; requestRepository: RequestRepository; logger?: FastifyServerOptions["logger"];
 }) {
   const { env } = options;
-  const server = Fastify({ logger: options.logger ?? false, ajv: { customOptions: { coerceTypes: false, removeAdditional: false } } });
+  const server = Fastify({ disableRequestLogging: true, logger: options.logger ?? false, ajv: { customOptions: { coerceTypes: false, removeAdditional: false } } });
+  server.addHook("onResponse", async (request, reply) => { recordOperation(request, reply); });
   server.addHook("onRequest", async (request, reply) => {
     const host = request.headers.host?.toLowerCase();
     const origin = request.headers.origin;
@@ -33,14 +35,13 @@ export async function createHttpServer(options: {
       return reply.code(status).send({ error: { code: "INVALID_INPUT", message: "invalid request", status } });
     }
     // ORMや入力の生値が例外messageに含まれても公開・記録しない。
-    request.log.error({ event: "http_failure", requestId: request.id }, "request failed");
     return reply.code(500).send({ error: { code: "INTERNAL_SERVER_ERROR", message: "request failed", status: 500 } });
   });
   await server.register(cors, { origin: env.corsOrigin, credentials: true, methods: ["GET", "HEAD", "POST", "PATCH"] });
   await server.register(cookie);
   await server.register(jwt, { secret: env.jwtSecret, sign: { expiresIn: SESSION_TTL_SECONDS }, cookie: { cookieName: AUTH_COOKIE_NAME, signed: false } });
-  await server.register(authPlugin, { userRepository: options.userRepository });
-  registerAuthRoutes(server, options.userRepository);
+  await server.register(authPlugin, { userRepository: options.userRepository, csrfSecret: env.jwtSecret });
+  registerAuthRoutes(server, options.userRepository, env.jwtSecret);
   registerRequestRoutes(server, options.requestRepository);
   return server;
 }

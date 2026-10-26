@@ -6,12 +6,12 @@
 ## 認証・セッション
 
 - `POST /auth/login` はemail/passwordを検証し、`miniflow_auth` と `miniflow_csrf` のcookieを返す。
-- JWTの有効期限は発行後8時間。認証cookieも8時間。JWTにはsub（user ID）、sv（認証世代）、iat、expを含め、emailは含めない。
+- JWTの有効期限は発行後8時間。認証cookieも8時間。JWTにはsub（user ID）、sv（認証世代）、sid（ログイン識別子）、iat、expを含め、emailは含めない。
 - auth cookieはhttpOnly、SameSite=Lax、path=/。productionではSecure。CSRF cookieはJavaScriptから読める以外は同じ寿命・属性。
-- 認証のたびに署名・期限・世代と、現在のuserの有効状態を検査する。期限/世代のない旧token、期限切れ、世代不一致、無効ユーザーは401。
+- 認証のたびに署名・期限・世代と、現在のuserの有効状態を検査する。期限/世代/ログイン識別子のない旧token、期限切れ、世代不一致、無効ユーザーは401。
 - password変更はhash更新とsessionVersionのincrementを同じ保存操作で行い、操作中を含む全セッションを失効させる。応答でcookieを削除し、画面は再ログインへ戻る。
 - `POST /auth/logout` はそのブラウザのcookieを削除する。他のブラウザや複製済みtokenの失効操作ではない。
-- `GET /auth/csrf` は認証後にCSRF tokenを取得する。token方式自体の変更と複数タブの取得競合対策は後続段階。
+- `GET /auth/csrf` は認証後にCSRF tokenを取得する。tokenは署名済みログインsessionに結び付き、GETでcookieを更新せず、Cache-Control: no-storeを返す。同時/反復取得では同じ値を返す。
 
 ## HTTPの信頼境界
 
@@ -21,7 +21,7 @@ CORSの読取制限を認証やCSRF防御の代わりに扱わない。
 
 ## エンドポイント
 
-「保護」は認証を要求し、「変更」はさらにcookieと一致する `x-csrf-token` を要求する。
+「保護」は認証を要求し、「変更」はさらにcookieとheaderが現在のsessionに対応する署名付きCSRF tokenであることを要求する。
 
 | Method/path | 認可・入力 | 成功 |
 | --- | --- | --- |
@@ -77,14 +77,14 @@ CORSの読取制限を認証やCSRF防御の代わりに扱わない。
 - Request: id/teamId/createdBy/title/body/status/createdAt/updatedAt/deletedAt。詳細だけapprovalsを別配列で返す。
 - Approval: id/requestId/actedBy/actionType/reason/createdAt。
 
-エラーは `{error:{code,message,status}}`。400は入力違反、401は認証拒否、403は権限・Host/Origin・CSRF拒否、404は不在、409は状態違反・重複email、500は内部障害。
+エラーは `{error:{code,message,status}}`。400は入力違反、401は認証拒否、403は権限・Host/Origin・CSRF拒否、404は不在、409は状態違反・保存競合・重複email、500は内部障害。
 入力の生値・秘密・ORM例外を応答へ出さない。認証保存先の障害は401に偽装せず500とする。
 
 ## 状態と保存
 
 submitはDraft→Pending、approve/rejectはPending→Approved/Rejected、reviseはRejected→Draft。差し戻し履歴は同じ申請で保持し、再提出後は同じ承認者が再決定できる。
 Approved/Deletedは終端。deleteはstatusとdeletedAtを同時に変更し、approve/rejectは状態変更と履歴追加を同一transactionに置く。
-現在の保存処理に対する並行更新の競合検知は次段階の課題で、この変更によって解消したとは扱わない。
+全申請更新は、サーバー取得時の保存世代に一致するときだけ保存する。競合時は409で、状態と決定履歴を残さない。クライアントは自動再送せず再取得を案内する。
 
 ## 第2段階の受け入れ条件
 
@@ -92,7 +92,7 @@ Approved/Deletedは終端。deleteはstatusとdeletedAtを同時に変更し、a
 | --- | --- |
 | AC1 | 公開signup廃止、ユーザー作成/所属割当はAdmin限定 |
 | AC2 | JWT_SECRETの未設定・空を拒否し固定鍵へfallbackしない |
-| AC3 | JWT/cookieは8時間、期限/世代のない旧tokenを拒否 |
+| AC3 | JWT/cookieは8時間、期限/世代/ログイン識別子のない旧tokenを拒否 |
 | AC4 | password変更成功で全セッション失効、操作画面も再ログインへ戻る |
 | AC5 | PATCHの未指定維持とdisplayName:nullによる削除を区別 |
 | AC6 | 不正型・列挙値・UUIDを400で拒否し、既存の所有/role/team判定を維持 |
@@ -104,3 +104,17 @@ Approved/Deletedは終端。deleteはstatusとdeletedAtを同時に変更し、a
 
 機能試験は [認証境界](tests/functional/auth-input-boundaries.md)、単体試験は [認証入力と永続化](tests/unit/auth-input-boundaries.md)。
 DBのsessionVersion追加はmigrationファイルを用意するが、既存DBへの適用は別操作。適用前後の運用と初期Admin作成は [runbook](runbook.md) を参照する。
+
+## 第3段階: 競合とCSRF
+
+| 条件 | 仕様 |
+| --- | --- |
+| AC1 | edit/submit/approve/reject/revise/deleteのすべてで、サーバー取得後に先行更新があれば409。自動再試行しない。再取得を案内し、入力を勝手に再送しない |
+| AC2 | approve/rejectの状態更新と履歴追加は原子的。片方だけ成功しない。競合の敗者は履歴を増やさない。再提出後の同一actor再決定は現行通り許可 |
+| AC3 | CSRF tokenは署名済みログインsessionに結び付ける。同じsessionの反復/並行取得で同じ値を返し、GETでcookieを書き換えない。別session/改ざん/欠落/旧ランダムtokenは403 |
+| AC4 | 複数タブ・同時取得・別タブ再login後も次の正規更新が可能。更新前に現在tokenを取得し、401では前段通りログインへ戻る。403/通信失敗を自動更新の再試行にしない |
+| AC5 | 成功イベントは保存完了後だけ記録。actor/action/requestの内部ID、相関ID、結果等の固定fieldだけ許可し、password/JWT/cookie/メール/申請本文/理由/例外全文を含めない。ログは永続監査台帳を保証しない |
+| AC6 | 既存role/team/owner・状態遷移・8時間期限・password全失効・Host/Origin境界を維持し、追加versionは内部保存用でDTOへ露出しない |
+
+入力の正本は現行API。新しい文字数・Unicode・password規則は追加しない。versionはDB取得の非負整数だけを内部で扱い、HTTPから指定させない。CSRF入力は定めた署名付き形式だけを検証し、不正入力で書き込まない。
+サーバー取得より前に別操作が終わった古い画面の内容まではAC1で検出しない。これを防ぐ公開version/If-Matchは別仕様とする。
