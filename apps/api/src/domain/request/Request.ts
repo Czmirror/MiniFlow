@@ -1,3 +1,4 @@
+/** 申請の状態遷移を不変な値として表す。取得時の保存versionは次の条件付き保存まで引き継ぐ。 */
 import type { Status } from "./Status.js";
 import { StateConflictError } from "../../application/errors/StateConflictError.js";
 import { Approval } from "./Approval.js";
@@ -8,6 +9,8 @@ import { Approval } from "./Approval.js";
  * delete/revise flows, update these factory-style methods together with the docs.
  */
 export class Request {
+  /** DB取得時の世代。遷移では増やさず、保存成功時だけrepositoryが増やす。 */
+  readonly version: number;
   readonly id: string;
   readonly teamId: string;
   readonly createdBy: string;
@@ -30,7 +33,9 @@ export class Request {
     body: string;
     status: Status;
     approvals: Approval[];
+    version: number;
   }) {
+    this.version = params.version;
     this.id = params.id;
     this.teamId = params.teamId;
     this.createdBy = params.createdBy;
@@ -65,6 +70,7 @@ export class Request {
       createdAt: timestamp,
       updatedAt: timestamp,
       deletedAt: null,
+      version: 0,
       approvals: []
     });
   }
@@ -80,9 +86,11 @@ export class Request {
     updatedAt: Date;
     deletedAt: Date | null;
     approvals?: Approval[];
+    version?: number;
   }): Request {
     return new Request({
       ...params,
+      version: params.version ?? 0,
       approvals: params.approvals ?? []
     });
   }
@@ -96,6 +104,7 @@ export class Request {
 
     return new Request({
       id: this.id,
+      version: this.version,
       teamId: this.teamId,
       createdBy: this.createdBy,
       createdAt: this.createdAt,
@@ -117,6 +126,7 @@ export class Request {
 
     return new Request({
       id: this.id,
+      version: this.version,
       teamId: this.teamId,
       createdBy: this.createdBy,
       createdAt: this.createdAt,
@@ -153,6 +163,7 @@ export class Request {
       approval,
       request: new Request({
         id: this.id,
+        version: this.version,
         teamId: this.teamId,
         createdBy: this.createdBy,
         createdAt: this.createdAt,
@@ -185,6 +196,7 @@ export class Request {
       approval,
       request: new Request({
         id: this.id,
+        version: this.version,
         teamId: this.teamId,
         createdBy: this.createdBy,
         createdAt: this.createdAt,
@@ -207,6 +219,7 @@ export class Request {
 
     return new Request({
       id: this.id,
+      version: this.version,
       teamId: this.teamId,
       createdBy: this.createdBy,
       createdAt: this.createdAt,
@@ -230,6 +243,7 @@ export class Request {
 
     return new Request({
       id: this.id,
+      version: this.version,
       teamId: this.teamId,
       createdBy: this.createdBy,
       createdAt: this.createdAt,
@@ -243,6 +257,7 @@ export class Request {
   }
 
   private assertInvariants(): void {
+    if (!Number.isSafeInteger(this.version) || this.version < 0) throw new Error("version must be a non-negative safe integer");
     if (this.title.trim().length === 0) {
       throw new Error("title must not be empty");
     }

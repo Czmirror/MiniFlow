@@ -1,4 +1,5 @@
 /** cookieの署名・期限・認証世代と現在の有効ユーザーを照合し、HTTPへ安全なactor情報を渡す。 */
+import { verifyCsrfToken } from "../../../infrastructure/auth/csrf.js";
 import fp from "fastify-plugin";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import type { UserRepository } from "../../../application/ports/UserRepository.js";
@@ -7,6 +8,8 @@ import { getCurrentUser } from "../../../application/auth/GetCurrentUser.js";
 
 declare module "fastify" {
   interface FastifyRequest {
+    /** JWT署名確認後だけ設定するログイン識別子。認可用DTOには公開しない。 */
+    sessionId: string | null;
     currentUser: {
       id: string;
       email: string;
@@ -27,8 +30,9 @@ declare module "fastify" {
 /**
  * Auth transport concerns stay in this plugin so workflow routes only depend on currentUser.
  */
-export const authPlugin = fp(async function authPlugin(server, options: { userRepository: UserRepository }) {
+export const authPlugin = fp(async function authPlugin(server, options: { userRepository: UserRepository; csrfSecret: string }) {
   server.decorateRequest("currentUser", null);
+  server.decorateRequest("sessionId", null);
 
   server.decorate("requireAuth", async (request: FastifyRequest, reply: FastifyReply) => {
     try {
@@ -37,13 +41,13 @@ export const authPlugin = fp(async function authPlugin(server, options: { userRe
         return reply.code(401).send(authError("UNAUTHORIZED", "authentication required", 401));
       }
 
-      let payload: { sub: string; sv: number; exp: number };
+      let payload: { sub: string; sv: number; exp: number; sid: string };
       try {
         payload = await request.jwtVerify<typeof payload>({ onlyCookie: true });
       } catch {
         return reply.code(401).send(authError("UNAUTHORIZED", "authentication required", 401));
       }
-      if (typeof payload.sub !== "string" || !Number.isSafeInteger(payload.sv) || payload.sv < 0 || !Number.isFinite(payload.exp)) {
+      if (!payload || typeof payload !== "object" || typeof payload.sid !== "string" || !/^[a-f0-9-]{36}$/.test(payload.sid) || typeof payload.sub !== "string" || !Number.isSafeInteger(payload.sv) || payload.sv < 0 || !Number.isFinite(payload.exp)) {
         return reply.code(401).send(authError("UNAUTHORIZED", "authentication required", 401));
       }
       const user = await getCurrentUser(options.userRepository, payload.sub);
@@ -51,6 +55,7 @@ export const authPlugin = fp(async function authPlugin(server, options: { userRe
         return reply.code(401).send(authError("UNAUTHORIZED", "authentication required", 401));
       }
 
+      request.sessionId = payload.sid;
       request.currentUser = {
         id: user.id,
         email: user.email,
@@ -61,7 +66,6 @@ export const authPlugin = fp(async function authPlugin(server, options: { userRe
         isActive: user.isActive
       };
     } catch {
-      request.log.error({ event: "authentication_storage_failure", requestId: request.id }, "authentication unavailable");
       return reply.code(500).send(authError("INTERNAL_SERVER_ERROR", "authentication unavailable", 500));
     }
   });
@@ -70,7 +74,7 @@ export const authPlugin = fp(async function authPlugin(server, options: { userRe
     const cookieToken = request.cookies[CSRF_COOKIE_NAME];
     const headerToken = request.headers["x-csrf-token"];
 
-    if (!cookieToken || typeof headerToken !== "string" || headerToken !== cookieToken) {
+    if (!request.sessionId || !verifyCsrfToken(options.csrfSecret, request.sessionId, cookieToken) || !verifyCsrfToken(options.csrfSecret, request.sessionId, headerToken)) {
       return reply.code(403).send(authError("FORBIDDEN", "invalid csrf token", 403));
     }
   });

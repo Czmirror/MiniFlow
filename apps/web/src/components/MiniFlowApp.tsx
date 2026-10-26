@@ -338,7 +338,9 @@ export function MiniFlowApp() {
 
   function handleApiError(caughtError: unknown) {
     if (caughtError instanceof ApiError && caughtError.status === 401) clearSession();
-    setError(toErrorMessage(caughtError));
+    setError(caughtError instanceof ApiError && caughtError.status === 409
+      ? (locale === "ja" ? "更新が競合しました。最新の内容を再取得してから操作してください。" : "The request changed. Reload the latest data before trying again.")
+      : toErrorMessage(caughtError));
   }
 
   async function initialize() {

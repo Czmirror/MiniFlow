@@ -40,8 +40,8 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
       description: >-
-        JWT and cookies expire after 8 hours. JWT contains a session version. Legacy tokens without
-        expiry/version are rejected.
+        JWT and cookies expire after 8 hours. JWT contains a session version and a per-login identifier. Legacy tokens without
+        expiry/version/session identifier are rejected.
   /auth/logout:
     post:
       tags:
@@ -79,7 +79,7 @@ paths:
     get:
       tags:
         - Auth
-      summary: Issue CSRF token
+      summary: Get the stable session-bound CSRF token without changing cookies
       operationId: getCsrfToken
       security:
         - cookieAuth: []
@@ -673,6 +673,7 @@ components:
       type: apiKey
       in: header
       name: x-csrf-token
+      description: HMAC token bound to the authenticated login session; must also match the CSRF cookie.
   schemas:
     Uuid:
       type: string
@@ -825,6 +826,8 @@ components:
       properties:
         csrfToken:
           type: string
+          pattern: "^[a-f0-9]{64}$"
+          description: Stable within the current authenticated login session.
     CreateRequestBody:
       type: object
       required:

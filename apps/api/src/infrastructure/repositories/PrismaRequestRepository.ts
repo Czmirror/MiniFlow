@@ -1,3 +1,5 @@
+/** 申請のPrisma保存を担う。全更新は取得versionで競合を検知し、決定履歴は状態と同じtransactionへ保存する。 */
+import { StateConflictError } from "../../application/errors/StateConflictError.js";
 import type { Prisma, PrismaClient } from "@prisma/client";
 import type { RequestRepository, NormalizedListRequestsInput } from "../../application/ports/RequestRepository.js";
 import { Approval } from "../../domain/request/Approval.js";
@@ -27,6 +29,7 @@ export class PrismaRequestRepository implements RequestRepository {
 
     return Request.rehydrate({
       id: record.id,
+      version: record.version,
       teamId: record.teamId,
       createdBy: record.createdBy,
       title: record.title,
@@ -56,6 +59,7 @@ export class PrismaRequestRepository implements RequestRepository {
 
     return Request.rehydrate({
       id: record.id,
+      version: record.version,
       teamId: record.teamId,
       createdBy: record.createdBy,
       title: record.title,
@@ -71,9 +75,10 @@ export class PrismaRequestRepository implements RequestRepository {
   async update(request: Request): Promise<Request> {
     const record = await this.prisma.requestRecord.update({
       where: {
-        id: request.id
+        id: request.id, version: request.version
       },
       data: {
+        version: { increment: 1 },
         teamId: request.teamId,
         createdBy: request.createdBy,
         title: request.title,
@@ -83,10 +88,11 @@ export class PrismaRequestRepository implements RequestRepository {
         updatedAt: request.updatedAt,
         deletedAt: request.deletedAt
       }
-    });
+    }).catch(rethrowConflict);
 
     return Request.rehydrate({
       id: record.id,
+      version: record.version,
       teamId: record.teamId,
       createdBy: record.createdBy,
       title: record.title,
@@ -162,6 +168,7 @@ export class PrismaRequestRepository implements RequestRepository {
       items: records.map((record) =>
         Request.rehydrate({
           id: record.id,
+          version: record.version,
           teamId: record.teamId,
           createdBy: record.createdBy,
           title: record.title,
@@ -183,9 +190,10 @@ export class PrismaRequestRepository implements RequestRepository {
     const [requestRecord] = await this.prisma.$transaction([
       this.prisma.requestRecord.update({
         where: {
-          id: request.id
+          id: request.id, version: request.version
         },
         data: {
+          version: { increment: 1 },
           status: request.status,
           updatedAt: request.updatedAt,
           deletedAt: request.deletedAt
@@ -201,10 +209,11 @@ export class PrismaRequestRepository implements RequestRepository {
           createdAt: approval.createdAt
         }
       })
-    ]);
+    ]).catch(rethrowConflict);
 
     return Request.rehydrate({
       id: requestRecord.id,
+      version: requestRecord.version,
       teamId: requestRecord.teamId,
       createdBy: requestRecord.createdBy,
       title: requestRecord.title,
@@ -234,4 +243,12 @@ export class PrismaRequestRepository implements RequestRepository {
       createdAt: record.createdAt
     });
   }
+}
+
+/** 条件付き更新の不一致だけを409へ変換し、他のDB障害は呼出元へ伝える。 */
+function rethrowConflict(error: unknown): never {
+  if (typeof error === "object" && error !== null && "code" in error && error.code === "P2025") {
+    throw new StateConflictError("request changed; reload it before trying again");
+  }
+  throw error;
 }
