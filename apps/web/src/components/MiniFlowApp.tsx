@@ -1,5 +1,7 @@
 "use client";
 
+// 既存の認証・申請操作を画面に接続する。外観はglobals.cssで定義する。
+
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import type {
@@ -707,6 +709,7 @@ export function MiniFlowApp() {
             <button
               className={view === item.view ? "nav-item active" : "nav-item"}
               key={item.view}
+              aria-current={view === item.view ? "page" : undefined}
               type="button"
               onClick={() => setView(item.view)}
             >
@@ -812,8 +815,10 @@ function Dashboard({
   return (
     <div className="screen-grid">
       <section className="screen-header">
-        <p className="eyebrow">{labels.overview}</p>
-        <h2>{labels.dashboard}</h2>
+        <div>
+          <p className="eyebrow">{labels.overview}</p>
+          <h2>{labels.dashboard}</h2>
+        </div>
       </section>
 
       <div className="metric-grid">
@@ -856,8 +861,10 @@ function RequestList({
   return (
     <div className="screen-grid">
       <section className="screen-header">
-        <p className="eyebrow">{labels.requests}</p>
-        <h2>{title}</h2>
+        <div>
+          <p className="eyebrow">{labels.requests}</p>
+          <h2>{title}</h2>
+        </div>
       </section>
       <RequestTable requests={requests} onOpenDetail={onOpenDetail} emptyText={labels.noRequests} />
     </div>
@@ -878,7 +885,7 @@ function RequestTable({
   }
 
   return (
-    <div className="table-wrap">
+    <div className="table-wrap" role="region" aria-label={labels.requestList} tabIndex={0}>
       <table>
         <thead>
           <tr>
@@ -930,8 +937,10 @@ function CreateRequestView({
   return (
     <div className="screen-grid">
       <section className="screen-header">
-        <p className="eyebrow">{labels.requests}</p>
-        <h2>{labels.requestCreate}</h2>
+        <div>
+          <p className="eyebrow">{labels.requests}</p>
+          <h2>{labels.requestCreate}</h2>
+        </div>
       </section>
 
       <form className="form-panel" onSubmit={onSaveDraft}>
@@ -980,8 +989,10 @@ function AccountSettingsView({
   return (
     <div className="screen-grid">
       <section className="screen-header">
-        <p className="eyebrow">{labels.accountSettings}</p>
-        <h2>{labels.accountSettings}</h2>
+        <div>
+          <p className="eyebrow">{labels.accountSettings}</p>
+          <h2>{labels.accountSettings}</h2>
+        </div>
       </section>
 
       <div className="settings-grid">
@@ -1078,8 +1089,10 @@ function UserManagementView({
   return (
     <div className="screen-grid">
       <section className="screen-header">
-        <p className="eyebrow">{labels.userManagement}</p>
-        <h2>{labels.userManagement}</h2>
+        <div>
+          <p className="eyebrow">{labels.userManagement}</p>
+          <h2>{labels.userManagement}</h2>
+        </div>
       </section>
 
       <form className="form-panel" onSubmit={onCreate}>
@@ -1135,7 +1148,7 @@ function UserManagementView({
         </button>
       </form>
 
-      <div className="table-wrap">
+      <div className="table-wrap user-table" role="region" aria-label={labels.userManagement} tabIndex={0}>
         <table>
           <thead>
             <tr>
