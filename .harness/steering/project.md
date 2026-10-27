@@ -147,3 +147,10 @@ Do NOT implement:
 - `apps/web/src/lib/managedUserChange.ts`: 管理更新応答が本人の所属・権限境界を変えるかを判定する。
 - `MiniFlowApp.handleUserUpdate`: 本人変更を反映し、所属・role変更では旧画面と未保存入力をresetする。認証破棄後の遅い応答は世代で拒否する。
 - 画面仕様は`docs/specs/account-context.md`、試験は`docs/tests/`、作業記録は`docs/work/account-context-sync/`。
+
+## 表示言語の分離
+
+- `apps/web/src/lib/messages.ts`: 日本語・英語の文言と読み取り専用型を持つ。選択中の言語は持たない。
+- `MiniFlowApp`は自身のlocaleから文言を選び、子画面と表示補助へ明示的に渡す。
+- `tests/apps/web/LocaleIsolation.spec.ts`: 本番のDashboardと表・状態表示を交互に日英で描画する回帰試験。
+- 計画・検証記録は`docs/work/locale-isolation/`。

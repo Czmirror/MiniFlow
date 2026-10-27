@@ -2,7 +2,7 @@
 
 // 既存の認証・申請操作を画面に接続する。外観はglobals.cssで定義する。
 
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import type {
   ListRequestsResponse,
@@ -27,6 +27,8 @@ import {
 import { ApiError, clearCsrfToken } from "../lib/apiTransport";
 import { createRequest, getRequest, transitionRequest, updateRequest } from "../lib/requestApi";
 
+import { messages } from "../lib/messages";
+import type { Labels, Locale } from "../lib/messages";
 import { currentRequestDetail } from "../lib/currentRequestDetail";
 import { managedUserChange } from "../lib/managedUserChange";
 import { useRequestCollection } from "../hooks/useRequestCollection";
@@ -35,7 +37,6 @@ const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:300
 const defaultTeamId = "team-1";
 
 type View = "dashboard" | "requests" | "mine" | "pending" | "create" | "detail" | "account" | "users";
-type Locale = "ja" | "en";
 
 const initialCreateForm: CreateRequestInput = {
   teamId: defaultTeamId,
@@ -56,208 +57,6 @@ const initialPasswordForm = {
   currentPassword: "",
   newPassword: ""
 };
-
-const locale: Locale = "ja";
-const messages = {
-  ja: {
-    appTitle: "ダッシュボード",
-    contextChanged: "所属または権限が変わったため、未保存の申請入力を消去しました。",
-    login: "ログイン",
-    loggingIn: "ログイン中",
-    logout: "ログアウト",
-    email: "メールアドレス",
-    password: "パスワード",
-    team: "チーム",
-    previousPage: "前のページ", nextPage: "次のページ", reload: "再読み込み", loadingRequests: "申請を読み込んでいます…",
-    overview: "概要",
-    requests: "申請",
-    dashboard: "ダッシュボード",
-    requestList: "申請一覧",
-    myRequests: "自分の申請",
-    pendingApprovals: "承認待ち",
-    requestCreate: "申請作成",
-    requestDetail: "申請詳細",
-    total: "合計",
-    pending: "承認待ち",
-    approved: "承認済み",
-    rejected: "差し戻し",
-    draft: "下書き",
-    deleted: "削除済み",
-    title: "件名",
-    status: "状態",
-    requester: "申請者",
-    updated: "更新日時",
-    created: "作成日時",
-    detail: "詳細",
-    body: "本文",
-    approval: "承認",
-    approvalHistory: "承認履歴",
-    reason: "理由",
-    approve: "承認",
-    reject: "差し戻し",
-    create: "作成",
-    creating: "作成中",
-    back: "戻る",
-    noPendingApprovals: "承認待ちはありません。",
-    noRequests: "表示できる申請はありません。",
-    noSelectedRequest: "申請が選択されていません。",
-    noApprovalHistory: "承認履歴はありません。",
-    noReason: "理由なし",
-    accountSettings: "アカウント設定",
-    userManagement: "ユーザー管理",
-    displayName: "表示名",
-    language: "言語",
-    japanese: "日本語",
-    english: "English",
-    save: "保存",
-    saving: "保存中",
-    passwordChange: "パスワード変更",
-    currentPassword: "現在のパスワード",
-    newPassword: "新しいパスワード",
-    changePassword: "パスワードを変更",
-    createUser: "ユーザー作成",
-    editUser: "ユーザー編集",
-    disableUser: "無効化",
-    enableUser: "有効化",
-    active: "有効",
-    inactive: "無効",
-    role: "ロール",
-    applicant: "申請者",
-    approver: "承認者",
-    admin: "管理者",
-    saveDraft: "下書き保存",
-    savingDraft: "保存中",
-    submitRequest: "申請する",
-    submittingRequest: "申請中",
-    submitSuccess: "申請しました。",
-    reviseRequest: "修正する",
-    revisingRequest: "修正中",
-    reviseSuccess: "下書きに戻しました。内容を修正して再申請できます。",
-    saveChanges: "変更を保存",
-    updateSuccess: "申請内容を保存しました。",
-    draftSubmitHelp: "下書きを提出すると、承認者が承認または差し戻しできます。",
-    rejectedReviseHelp: "差し戻された申請は、下書きに戻して修正できます。",
-    pendingApprovalHelp: "承認待ちです。承認者の判断を待っています。",
-    userCreated: "ユーザーを作成しました。",
-    userUpdated: "ユーザーを更新しました。",
-    accountUpdated: "アカウント設定を保存しました。",
-    passwordChanged: "パスワードを変更しました。再ログインしてください。",
-    loginSuccess: "ログインしました。",
-    createSuccess: "下書きを保存しました。",
-    approveSuccess: "承認しました。",
-    rejectSuccess: "差し戻しました。",
-    approvalAvailableAfterSubmit: "承認操作は、申請が提出された後に利用できます。",
-    ownRequestApprovalHidden: "自分が作成した申請のため、承認操作は表示していません。",
-    approvalUnavailable: "この申請では承認操作を利用できません。",
-    statusLabels: {
-      Draft: "下書き",
-      Pending: "承認待ち",
-      Approved: "承認済み",
-      Rejected: "差し戻し",
-      Deleted: "削除済み"
-    }
-  },
-  en: {
-    appTitle: "Dashboard",
-    contextChanged: "Your team or role changed. Unsaved request input has been cleared.",
-    login: "Login",
-    loggingIn: "Logging in",
-    logout: "Logout",
-    email: "Email",
-    password: "Password",
-    team: "Team",
-    previousPage: "Previous", nextPage: "Next", reload: "Reload", loadingRequests: "Loading requests…",
-    overview: "Overview",
-    requests: "Requests",
-    dashboard: "Dashboard",
-    requestList: "Request List",
-    myRequests: "My Requests",
-    pendingApprovals: "Pending Approvals",
-    requestCreate: "Request Create",
-    requestDetail: "Request Detail",
-    total: "Total",
-    pending: "Pending",
-    approved: "Approved",
-    rejected: "Rejected",
-    draft: "Draft",
-    deleted: "Deleted",
-    title: "Title",
-    status: "Status",
-    requester: "Requester",
-    updated: "Updated",
-    created: "Created",
-    detail: "Detail",
-    body: "Body",
-    approval: "Approval",
-    approvalHistory: "Approval History",
-    reason: "Reason",
-    approve: "Approve",
-    reject: "Reject",
-    create: "Create",
-    creating: "Creating",
-    back: "Back",
-    noPendingApprovals: "No pending approvals.",
-    noRequests: "No requests to show.",
-    noSelectedRequest: "No request is selected.",
-    noApprovalHistory: "No approval history.",
-    noReason: "No reason",
-    accountSettings: "Account Settings",
-    userManagement: "User Management",
-    displayName: "Display Name",
-    language: "Language",
-    japanese: "Japanese",
-    english: "English",
-    save: "Save",
-    saving: "Saving",
-    passwordChange: "Password Change",
-    currentPassword: "Current Password",
-    newPassword: "New Password",
-    changePassword: "Change Password",
-    createUser: "Create User",
-    editUser: "Edit User",
-    disableUser: "Disable",
-    enableUser: "Enable",
-    active: "Active",
-    inactive: "Inactive",
-    role: "Role",
-    applicant: "Applicant",
-    approver: "Approver",
-    admin: "Admin",
-    saveDraft: "Save Draft",
-    savingDraft: "Saving",
-    submitRequest: "Submit",
-    submittingRequest: "Submitting",
-    submitSuccess: "Submitted.",
-    reviseRequest: "Revise",
-    revisingRequest: "Revising",
-    reviseSuccess: "Returned to draft. You can edit and resubmit it.",
-    saveChanges: "Save Changes",
-    updateSuccess: "Request changes saved.",
-    draftSubmitHelp: "Submit the draft so an approver can approve or reject it.",
-    rejectedReviseHelp: "Rejected requests can be returned to draft for editing.",
-    pendingApprovalHelp: "This request is pending approval.",
-    userCreated: "User created.",
-    userUpdated: "User updated.",
-    accountUpdated: "Account settings saved.",
-    passwordChanged: "Password changed. Please log in again.",
-    loginSuccess: "Logged in.",
-    createSuccess: "Draft saved.",
-    approveSuccess: "Approved.",
-    rejectSuccess: "Rejected.",
-    approvalAvailableAfterSubmit: "Approval actions are available only after the request is submitted.",
-    ownRequestApprovalHidden: "This is your own request, so approval actions are hidden.",
-    approvalUnavailable: "Approval actions are not available for this request.",
-    statusLabels: {
-      Draft: "Draft",
-      Pending: "Pending",
-      Approved: "Approved",
-      Rejected: "Rejected",
-      Deleted: "Deleted"
-    }
-  }
-} as const;
-
-let labels: (typeof messages)[Locale] = messages[locale];
 
 export function MiniFlowApp() {
   // logout/401後に遅い管理更新の応答が本人情報を復帰させないための世代。
@@ -282,7 +81,7 @@ export function MiniFlowApp() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  labels = messages[locale];
+  const labels = messages[locale];
   const navItems: Array<{ view: View; label: string }> = [
     { view: "dashboard", label: labels.dashboard },
     { view: "requests", label: labels.requestList },
@@ -733,7 +532,7 @@ export function MiniFlowApp() {
         <div className="sidebar-footer">
           <div className="user-block">
             <span>{currentUser.email}</span>
-            <span>{roleLabel(currentUser.role)}</span>
+            <span>{roleLabel(currentUser.role, labels)}</span>
             <small>{currentUser.id}</small>
           </div>
           <button className="button quiet" type="button" onClick={() => void handleLogout()} disabled={loading}>
@@ -753,15 +552,16 @@ export function MiniFlowApp() {
         ) : null}
 
         {view === "dashboard" && collection.data ? (
-          <Dashboard stats={collection.data.summary} pendingApprovals={collection.data.listing.items} onOpenDetail={handleOpenDetail} />
+          <Dashboard labels={labels} stats={collection.data.summary} pendingApprovals={collection.data.listing.items} onOpenDetail={handleOpenDetail} />
         ) : null}
 
         {["requests", "mine", "pending"].includes(view) && collection.data ? (
-          <RequestList loading={collection.loading} title={currentPageTitle} listing={collection.data.listing} onPage={collection.changePage} onOpenDetail={handleOpenDetail} />
+          <RequestList labels={labels} loading={collection.loading} title={currentPageTitle} listing={collection.data.listing} onPage={collection.changePage} onOpenDetail={handleOpenDetail} />
         ) : null}
 
         {view === "create" ? (
           <CreateRequestView
+            labels={labels}
             form={createForm}
             loading={loading}
             onChange={setCreateForm}
@@ -772,6 +572,7 @@ export function MiniFlowApp() {
 
         {view === "account" ? (
           <AccountSettingsView
+            labels={labels}
             accountForm={accountForm}
             loading={loading}
             passwordForm={passwordForm}
@@ -784,6 +585,7 @@ export function MiniFlowApp() {
 
         {view === "users" && currentUser.role === "Admin" ? (
           <UserManagementView
+            labels={labels}
             currentUser={currentUser}
             form={userForm}
             loading={loading}
@@ -796,6 +598,7 @@ export function MiniFlowApp() {
 
         {view === "detail" ? (
           <RequestDetailView
+            labels={labels}
             approvals={approvals}
             currentUser={currentUser}
             decisionReason={decisionReason}
@@ -814,11 +617,14 @@ export function MiniFlowApp() {
   );
 }
 
-function Dashboard({
+/** 渡された文言と集計だけでダッシュボードを表示する。表示言語の共有状態は参照しない。 */
+export function Dashboard({
+  labels,
   stats,
   pendingApprovals,
   onOpenDetail
 }: {
+  labels: Labels;
   stats: RequestSummary;
   pendingApprovals: RequestDto[];
   onOpenDetail: (id: string) => void;
@@ -845,7 +651,7 @@ function Dashboard({
         <div className="section-heading">
           <h3>{labels.pendingApprovals}</h3>
         </div>
-        <RequestTable requests={pendingApprovals.slice(0, 5)} onOpenDetail={onOpenDetail} emptyText={labels.noPendingApprovals} />
+        <RequestTable labels={labels} requests={pendingApprovals.slice(0, 5)} onOpenDetail={onOpenDetail} emptyText={labels.noPendingApprovals} />
       </section>
     </div>
   );
@@ -860,7 +666,8 @@ function Metric({ label, value }: { label: string; value: number }) {
   );
 }
 
-function RequestList({ title, listing, loading, onPage, onOpenDetail }: {
+function RequestList({ labels, title, listing, loading, onPage, onOpenDetail }: {
+  labels: Labels;
   loading: boolean;
   title: string;
   listing: ListRequestsResponse;
@@ -875,7 +682,7 @@ function RequestList({ title, listing, loading, onPage, onOpenDetail }: {
       <section className="screen-header">
         <div><p className="eyebrow">{labels.requests}</p><h2>{title}</h2></div>
       </section>
-      <RequestTable disabled={loading} requests={listing.items} onOpenDetail={onOpenDetail} emptyText={labels.noRequests} />
+      <RequestTable labels={labels} disabled={loading} requests={listing.items} onOpenDetail={onOpenDetail} emptyText={labels.noRequests} />
       <nav className="pagination" aria-busy={loading} aria-label={`${title} pagination`}>
         <p aria-live="polite">{loading ? labels.loadingRequests : null} {start}–{end} / {listing.total} · {listing.page} / {pages}</p>
         <div className="form-actions">
@@ -888,11 +695,13 @@ function RequestList({ title, listing, loading, onPage, onOpenDetail }: {
 }
 
 function RequestTable({
+  labels,
   disabled = false,
   requests,
   emptyText,
   onOpenDetail
 }: {
+  labels: Labels;
   requests: RequestDto[];
   emptyText: string;
   disabled?: boolean;
@@ -922,7 +731,7 @@ function RequestTable({
                 <small>{request.id}</small>
               </td>
               <td>
-                <StatusBadge status={request.status} />
+                <StatusBadge labels={labels} status={request.status} />
               </td>
               <td>{shortId(request.createdBy)}</td>
               <td>{formatDate(request.updatedAt)}</td>
@@ -940,12 +749,14 @@ function RequestTable({
 }
 
 function CreateRequestView({
+  labels,
   form,
   loading,
   onChange,
   onSaveDraft,
   onSubmitRequest
 }: {
+  labels: Labels;
   form: CreateRequestInput;
   loading: boolean;
   onChange: (form: CreateRequestInput) => void;
@@ -988,6 +799,7 @@ function CreateRequestView({
 }
 
 function AccountSettingsView({
+  labels,
   accountForm,
   loading,
   passwordForm,
@@ -996,6 +808,7 @@ function AccountSettingsView({
   onPasswordChange,
   onPasswordSubmit
 }: {
+  labels: Labels;
   accountForm: { displayName: string; language: Locale };
   loading: boolean;
   passwordForm: { currentPassword: string; newPassword: string };
@@ -1067,6 +880,7 @@ function AccountSettingsView({
 }
 
 function UserManagementView({
+  labels,
   currentUser,
   form,
   loading,
@@ -1075,6 +889,7 @@ function UserManagementView({
   onFormChange,
   onUpdate
 }: {
+  labels: Labels;
   currentUser: AuthUserDto;
   form: typeof initialUserForm;
   loading: boolean;
@@ -1214,7 +1029,7 @@ function UserManagementView({
                       <option value="Admin">{labels.admin}</option>
                     </select>
                   ) : (
-                    roleLabel(user.role)
+                    roleLabel(user.role, labels)
                   )}
                 </td>
                 <td>
@@ -1269,6 +1084,7 @@ function UserManagementView({
 }
 
 function RequestDetailView({
+  labels,
   approvals,
   currentUser,
   decisionReason,
@@ -1281,6 +1097,7 @@ function RequestDetailView({
   onSubmitRequest,
   onUpdateRequest
 }: {
+  labels: Labels;
   approvals: ApprovalDto[];
   currentUser: AuthUserDto;
   decisionReason: string;
@@ -1329,7 +1146,7 @@ function RequestDetailView({
           <h2>{request.title}</h2>
           <span className="detail-id">{request.id}</span>
         </div>
-        <StatusBadge status={request.status} />
+        <StatusBadge labels={labels} status={request.status} />
       </section>
 
       <section className="detail-layout">
@@ -1428,7 +1245,7 @@ function RequestDetailView({
         ) : (
           <aside className="decision-panel muted">
             <h3>{labels.approval}</h3>
-            <p>{approvalUnavailableMessage(request.status, isOwnRequest, currentUser.role)}</p>
+            <p>{approvalUnavailableMessage(request.status, isOwnRequest, currentUser.role, labels)}</p>
           </aside>
         )}
       </section>
@@ -1444,7 +1261,7 @@ function RequestDetailView({
           <div className="history-list">
             {approvals.map((approval) => (
               <div className="history-item" key={approval.id}>
-                <StatusBadge status={approval.actionType === "Approved" ? "Approved" : "Rejected"} />
+                <StatusBadge labels={labels} status={approval.actionType === "Approved" ? "Approved" : "Rejected"} />
                 <div>
                   <strong>{shortId(approval.actedBy)}</strong>
                   <p>{approval.reason || labels.noReason}</p>
@@ -1470,7 +1287,7 @@ function Meta({ label, value }: { label: string; value: string }) {
   );
 }
 
-function StatusBadge({ status }: { status: RequestDto["status"] }) {
+function StatusBadge({ status, labels }: { status: RequestDto["status"]; labels: Labels }) {
   return <span className={`status ${status.toLowerCase()}`}>{labels.statusLabels[status]}</span>;
 }
 
@@ -1482,7 +1299,7 @@ function StatusMessage({ error, message }: { error: string | null; message: stri
   return <p className={error ? "notice error" : "notice success"}>{error ?? message}</p>;
 }
 
-function roleLabel(role: UserRole) {
+function roleLabel(role: UserRole, labels: Labels) {
   if (role === "Admin") {
     return labels.admin;
   }
@@ -1493,7 +1310,7 @@ function roleLabel(role: UserRole) {
   return labels.applicant;
 }
 
-function approvalUnavailableMessage(status: RequestDto["status"], isOwnRequest: boolean, role: UserRole) {
+function approvalUnavailableMessage(status: RequestDto["status"], isOwnRequest: boolean, role: UserRole, labels: Labels) {
   if (status === "Pending" && role === "Applicant") {
     return labels.pendingApprovalHelp;
   }
