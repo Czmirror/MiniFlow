@@ -9,12 +9,13 @@ import { createRequest } from "../../../application/requests/CreateRequest.js";
 import { approveRequest } from "../../../application/requests/ApproveRequest.js";
 import { deleteRequest } from "../../../application/requests/DeleteRequest.js";
 import { getRequestById } from "../../../application/requests/GetRequestById.js";
+import { getRequestSummary } from "../../../application/requests/GetRequestSummary.js";
 import { listRequests } from "../../../application/requests/ListRequests.js";
 import { rejectRequest } from "../../../application/requests/RejectRequest.js";
 import { reviseRequest } from "../../../application/requests/ReviseRequest.js";
 import { submitRequest } from "../../../application/requests/SubmitRequest.js";
 import { updateRequest } from "../../../application/requests/UpdateRequest.js";
-import { idParams, createRequestSchema, updateRequestSchema, decisionSchema, requestListSchema } from "../validation/schemas.js";
+import { idParams, createRequestSchema, updateRequestSchema, decisionSchema, requestListSchema, requestSummarySchema } from "../validation/schemas.js";
 import { toRequestDetailDto, toRequestDto } from "../mappers/toRequestDto.js";
 
 /**
@@ -71,8 +72,16 @@ export function registerRequestRoutes(server: FastifyInstance, repository: Reque
     }
   });
 
+  server.get("/requests/summary", { schema: requestSummarySchema, preHandler: [server.requireAuth] }, async (request, reply) => {
+    try {
+      if (!request.currentUser) return reply.code(401).send(notAuthorizedError());
+      return reply.send(await getRequestSummary(repository, request.currentUser.teamId, request.currentUser.id));
+    } catch (error) { return handleRouteError(request, reply, error, "failed to summarize requests"); }
+  });
+
   server.get("/requests", { schema: requestListSchema, preHandler: [server.requireAuth] }, async (request, reply) => {
     const query = request.query as Partial<{
+      scope: ListRequestsInput["scope"];
       status: ListRequestsInput["status"];
       includeDeleted: string;
       from: string;
@@ -88,13 +97,14 @@ export function registerRequestRoutes(server: FastifyInstance, repository: Reque
 
       const response = await listRequests(repository, {
         teamId: request.currentUser.teamId,
+        scope: query.scope,
         status: query.status,
         includeDeleted: query.includeDeleted === "true",
         from: query.from,
         to: query.to,
         page: query.page !== undefined ? Number(query.page) : undefined,
         limit: query.limit !== undefined ? Number(query.limit) : undefined
-      });
+      }, request.currentUser);
 
       return reply.send({
         items: response.items.map(toRequestDto),

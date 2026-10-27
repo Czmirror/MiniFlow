@@ -43,8 +43,22 @@ export class InMemoryRequestRepository implements RequestRepository {
   async approve(request: Request): Promise<Request> { return this.persist(request); }
   async reject(request: Request): Promise<Request> { return this.persist(request); }
 
+  async summary(teamId: string, actorId: string) {
+    const items = [...this.records.values()].filter(r => r.teamId === teamId && r.status !== "Deleted");
+    const count = (status: string) => items.filter(r => r.status === status).length;
+    return { total: items.length, mine: items.filter(r => r.createdBy === actorId).length,
+      pending: count("Pending"), approved: count("Approved"), rejected: count("Rejected"), drafts: count("Draft") };
+  }
+
   async list(input: NormalizedListRequestsInput) {
-    return { items: [...this.records.values()], page: input.page, limit: input.limit, total: this.records.size };
+    const items = [...this.records.values()].filter(r => !input.empty && r.teamId === input.teamId
+      && (!input.status ? input.includeDeleted || r.status !== "Deleted" : r.status === input.status)
+      && (!input.createdBy || r.createdBy === input.createdBy)
+      && (!input.excludeCreatedBy || r.createdBy !== input.excludeCreatedBy)
+      && (!input.from || r.createdAt >= new Date(input.from))
+      && (!input.to || r.createdAt <= new Date(input.to)))
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime() || b.id.localeCompare(a.id));
+    return { items: items.slice((input.page - 1) * input.limit, input.page * input.limit), page: input.page, limit: input.limit, total: items.length };
   }
 
   private persist(request: Request): Request {

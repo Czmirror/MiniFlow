@@ -19,6 +19,7 @@ function concurrentReads(repo: RequestRepository): RequestRepository {
   let release!: () => void;
   const ready = new Promise<void>(resolve => { release = resolve; });
   return {
+    summary: (team, actor) => repo.summary(team, actor),
     create: r => repo.create(r), update: r => repo.update(r), approve: (r,a) => repo.approve(r,a), reject: (r,a) => repo.reject(r,a), list: i => repo.list(i),
     async findById(id) { const r = await repo.findById(id); if (++reads === 2) release(); await ready; return r; }
   };

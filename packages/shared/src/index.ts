@@ -94,7 +94,13 @@ export type UpdateUserInput = {
   isActive?: boolean;
 };
 
+export type RequestListScope = "all" | "mine" | "pendingApprovals";
+
+/** 同一teamの削除済み以外の全件集計。mineは認証本人の件数。 */
+export type RequestSummary = { total: number; mine: number; pending: number; approved: number; rejected: number; drafts: number };
+
 export type ListRequestsInput = {
+  scope?: RequestListScope;
   teamId: string;
   status?: RequestStatus;
   includeDeleted?: boolean;

@@ -2,9 +2,11 @@
 
 // 既存の認証・申請操作を画面に接続する。外観はglobals.cssで定義する。
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import type {
+  ListRequestsResponse,
+  RequestSummary,
   ApprovalDto,
   AuthUserDto,
   CreateRequestInput,
@@ -23,7 +25,9 @@ import {
   updateUser
 } from "../lib/authApi";
 import { ApiError, clearCsrfToken } from "../lib/apiTransport";
-import { createRequest, getRequest, listRequests, transitionRequest, updateRequest } from "../lib/requestApi";
+import { createRequest, getRequest, transitionRequest, updateRequest } from "../lib/requestApi";
+
+import { useRequestCollection } from "../hooks/useRequestCollection";
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
 const defaultTeamId = "team-1";
@@ -61,6 +65,7 @@ const messages = {
     email: "メールアドレス",
     password: "パスワード",
     team: "チーム",
+    previousPage: "前のページ", nextPage: "次のページ", reload: "再読み込み", loadingRequests: "申請を読み込んでいます…",
     overview: "概要",
     requests: "申請",
     dashboard: "ダッシュボード",
@@ -157,6 +162,7 @@ const messages = {
     email: "Email",
     password: "Password",
     team: "Team",
+    previousPage: "Previous", nextPage: "Next", reload: "Reload", loadingRequests: "Loading requests…",
     overview: "Overview",
     requests: "Requests",
     dashboard: "Dashboard",
@@ -255,7 +261,6 @@ export function MiniFlowApp() {
   const [email, setEmail] = useState("demo@example.com");
   const [password, setPassword] = useState("password1234");
   const [teamId, setTeamId] = useState(defaultTeamId);
-  const [requests, setRequests] = useState<RequestDto[]>([]);
   const [users, setUsers] = useState<UserManagementDto[]>([]);
   const [selectedRequest, setSelectedRequest] = useState<RequestDto | null>(null);
   const [approvals, setApprovals] = useState<ApprovalDto[]>([]);
@@ -288,43 +293,14 @@ export function MiniFlowApp() {
     void initialize();
   }, []);
 
-  const stats = useMemo(() => {
-    const visible = requests.filter((request) => request.status !== "Deleted");
-    return {
-      total: visible.length,
-      drafts: visible.filter((request) => request.status === "Draft").length,
-      pending: visible.filter((request) => request.status === "Pending").length,
-      approved: visible.filter((request) => request.status === "Approved").length,
-      rejected: visible.filter((request) => request.status === "Rejected").length,
-      mine: currentUser ? visible.filter((request) => request.createdBy === currentUser.id).length : 0
-    };
-  }, [currentUser, requests]);
-
-  const myRequests = useMemo(() => {
-    if (!currentUser) {
-      return [];
-    }
-
-    return requests.filter((request) => request.status !== "Deleted" && request.createdBy === currentUser.id);
-  }, [currentUser, requests]);
-
-  const pendingApprovals = useMemo(() => {
-    if (!currentUser) {
-      return [];
-    }
-    if (currentUser.role === "Applicant") {
-      return [];
-    }
-
-    return requests.filter((request) => request.status === "Pending" && request.createdBy !== currentUser.id);
-  }, [currentUser, requests]);
+  const collection = useRequestCollection(apiBaseUrl, currentUser, view, handleApiError);
 
   // サーバーが認証を拒否した場合も、再読込なしで再ログインできる状態へ戻す。
   function clearSession() {
     clearCsrfToken();
     setCurrentUser(null);
     setPassword("");
-    setRequests([]);
+    collection.reset();
     setUsers([]);
     setSelectedRequest(null);
     setApprovals([]);
@@ -354,7 +330,6 @@ export function MiniFlowApp() {
       setCurrentUser(user);
       if (user) {
         applyUserSettings(user);
-        await refreshRequests();
         if (user.role === "Admin") {
           await refreshUsers();
         }
@@ -376,7 +351,6 @@ export function MiniFlowApp() {
       const user = await login(apiBaseUrl, { email, password });
       setCurrentUser(user);
       applyUserSettings(user);
-      await refreshRequests();
       if (user.role === "Admin") {
         await refreshUsers();
       }
@@ -405,8 +379,7 @@ export function MiniFlowApp() {
   }
 
   async function refreshRequests() {
-    const response = await listRequests(apiBaseUrl, false);
-    setRequests(response.items);
+    await collection.reload();
   }
 
   async function refreshUsers() {
@@ -733,20 +706,19 @@ export function MiniFlowApp() {
       <section className="workspace">
         <StatusMessage error={error} message={message} />
 
-        {view === "dashboard" ? (
-          <Dashboard stats={stats} pendingApprovals={pendingApprovals} onOpenDetail={handleOpenDetail} />
+        {["dashboard", "requests", "mine", "pending"].includes(view) && !collection.data ? (
+          <section className="empty-state" aria-live="polite">
+            <p>{collection.error ?? labels.loadingRequests}</p>
+            {collection.error ? <button className="button secondary" type="button" onClick={() => void collection.reload()}>{labels.reload}</button> : null}
+          </section>
         ) : null}
 
-        {view === "requests" ? (
-          <RequestList title={labels.requestList} requests={requests.filter((request) => request.status !== "Deleted")} onOpenDetail={handleOpenDetail} />
+        {view === "dashboard" && collection.data ? (
+          <Dashboard stats={collection.data.summary} pendingApprovals={collection.data.listing.items} onOpenDetail={handleOpenDetail} />
         ) : null}
 
-        {view === "mine" ? (
-          <RequestList title={labels.myRequests} requests={myRequests} onOpenDetail={handleOpenDetail} />
-        ) : null}
-
-        {view === "pending" ? (
-          <RequestList title={labels.pendingApprovals} requests={pendingApprovals} onOpenDetail={handleOpenDetail} />
+        {["requests", "mine", "pending"].includes(view) && collection.data ? (
+          <RequestList loading={collection.loading} title={currentPageTitle} listing={collection.data.listing} onPage={collection.changePage} onOpenDetail={handleOpenDetail} />
         ) : null}
 
         {view === "create" ? (
@@ -808,7 +780,7 @@ function Dashboard({
   pendingApprovals,
   onOpenDetail
 }: {
-  stats: { total: number; drafts: number; pending: number; approved: number; rejected: number; mine: number };
+  stats: RequestSummary;
   pendingApprovals: RequestDto[];
   onOpenDetail: (id: string) => void;
 }) {
@@ -849,35 +821,42 @@ function Metric({ label, value }: { label: string; value: number }) {
   );
 }
 
-function RequestList({
-  title,
-  requests,
-  onOpenDetail
-}: {
+function RequestList({ title, listing, loading, onPage, onOpenDetail }: {
+  loading: boolean;
   title: string;
-  requests: RequestDto[];
+  listing: ListRequestsResponse;
+  onPage: (page: number) => void;
   onOpenDetail: (id: string) => void;
 }) {
+  const pages = Math.max(1, Math.ceil(listing.total / listing.limit));
+  const start = listing.total === 0 ? 0 : (listing.page - 1) * listing.limit + 1;
+  const end = start === 0 ? 0 : start + listing.items.length - 1;
   return (
     <div className="screen-grid">
       <section className="screen-header">
-        <div>
-          <p className="eyebrow">{labels.requests}</p>
-          <h2>{title}</h2>
-        </div>
+        <div><p className="eyebrow">{labels.requests}</p><h2>{title}</h2></div>
       </section>
-      <RequestTable requests={requests} onOpenDetail={onOpenDetail} emptyText={labels.noRequests} />
+      <RequestTable disabled={loading} requests={listing.items} onOpenDetail={onOpenDetail} emptyText={labels.noRequests} />
+      <nav className="pagination" aria-busy={loading} aria-label={`${title} pagination`}>
+        <p aria-live="polite">{loading ? labels.loadingRequests : null} {start}–{end} / {listing.total} · {listing.page} / {pages}</p>
+        <div className="form-actions">
+          <button className="button secondary" type="button" disabled={loading || listing.page <= 1} onClick={() => onPage(listing.page - 1)}>{labels.previousPage}</button>
+          <button className="button secondary" type="button" disabled={loading || listing.page >= pages} onClick={() => onPage(listing.page + 1)}>{labels.nextPage}</button>
+        </div>
+      </nav>
     </div>
   );
 }
 
 function RequestTable({
+  disabled = false,
   requests,
   emptyText,
   onOpenDetail
 }: {
   requests: RequestDto[];
   emptyText: string;
+  disabled?: boolean;
   onOpenDetail: (id: string) => void;
 }) {
   if (requests.length === 0) {
@@ -909,7 +888,7 @@ function RequestTable({
               <td>{shortId(request.createdBy)}</td>
               <td>{formatDate(request.updatedAt)}</td>
               <td>
-                <button className="button table-action" type="button" onClick={() => void onOpenDetail(request.id)}>
+                <button className="button table-action" type="button" disabled={disabled} onClick={() => void onOpenDetail(request.id)}>
                   {labels.detail}
                 </button>
               </td>
