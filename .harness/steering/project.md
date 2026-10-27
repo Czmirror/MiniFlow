@@ -154,3 +154,10 @@ Do NOT implement:
 - `MiniFlowApp`は自身のlocaleから文言を選び、子画面と表示補助へ明示的に渡す。
 - `tests/apps/web/LocaleIsolation.spec.ts`: 本番のDashboardと表・状態表示を交互に日英で描画する回帰試験。
 - 計画・検証記録は`docs/work/locale-isolation/`。
+
+## API内部の依存境界
+
+- `domain/errors/StateConflictError.ts`: 業務状態・保存競合の例外。HTTP 409への変換はHTTP routeが担当する。
+- `application/ports/PasswordOperations.ts`: 認証usecaseが受け取る非同期hash・照合の契約。
+- `infrastructure/auth/password.ts`: 既存のbcrypt実装。HTTPとCLIの組立がusecaseへ明示的に渡す。
+- 試験と記録は`docs/tests/unit/api-dependency-boundaries.md`と`docs/work/api-dependency-boundaries/`。

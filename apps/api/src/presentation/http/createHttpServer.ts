@@ -1,4 +1,5 @@
 /** HTTPの組立とtransport境界。保存先を注入し、DBの生成・切断はproductionの組立に委ねる。 */
+import { bcryptPasswordOperations } from "../../infrastructure/auth/password.js";
 import cookie from "@fastify/cookie";
 import cors from "@fastify/cors";
 import jwt from "@fastify/jwt";
@@ -41,7 +42,7 @@ export async function createHttpServer(options: {
   await server.register(cookie);
   await server.register(jwt, { secret: env.jwtSecret, sign: { expiresIn: SESSION_TTL_SECONDS }, cookie: { cookieName: AUTH_COOKIE_NAME, signed: false } });
   await server.register(authPlugin, { userRepository: options.userRepository, csrfSecret: env.jwtSecret });
-  registerAuthRoutes(server, options.userRepository, env.jwtSecret);
+  registerAuthRoutes(server, options.userRepository, env.jwtSecret, bcryptPasswordOperations);
   registerRequestRoutes(server, options.requestRepository);
   return server;
 }

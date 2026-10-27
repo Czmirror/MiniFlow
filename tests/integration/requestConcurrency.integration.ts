@@ -9,7 +9,7 @@ import { approveRequest } from "../../apps/api/src/application/requests/ApproveR
 import { rejectRequest } from "../../apps/api/src/application/requests/RejectRequest";
 import { updateRequest } from "../../apps/api/src/application/requests/UpdateRequest";
 import { submitRequest } from "../../apps/api/src/application/requests/SubmitRequest";
-import { StateConflictError } from "../../apps/api/src/application/errors/StateConflictError";
+import { StateConflictError } from "../../apps/api/src/domain/errors/StateConflictError";
 
 const creator = "11111111-1111-1111-1111-111111111111", actor = "22222222-2222-2222-2222-222222222222";
 

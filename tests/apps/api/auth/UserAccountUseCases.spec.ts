@@ -1,3 +1,4 @@
+import { bcryptPasswordOperations } from "../../../../apps/api/src/infrastructure/auth/password";
 import { describe, expect, it } from "vitest";
 import { changePassword } from "../../../../apps/api/src/application/auth/ChangePassword";
 import { loginUser } from "../../../../apps/api/src/application/auth/LoginUser";
@@ -31,10 +32,10 @@ describe("apps/api account and user use cases", () => {
       userId: "user-1",
       currentPassword: "password1234",
       newPassword: "newpassword1234"
-    });
+    }, bcryptPasswordOperations);
 
     await expect(
-      loginUser(repository, { email: "user@example.com", password: "newpassword1234" })
+      loginUser(repository, { email: "user@example.com", password: "newpassword1234" }, bcryptPasswordOperations)
     ).resolves.toMatchObject({ id: "user-1" });
   });
 
@@ -49,7 +50,7 @@ describe("apps/api account and user use cases", () => {
     );
 
     await expect(
-      loginUser(repository, { email: "user@example.com", password: "password1234" })
+      loginUser(repository, { email: "user@example.com", password: "password1234" }, bcryptPasswordOperations)
     ).rejects.toBeInstanceOf(InputValidationError);
   });
 
@@ -57,7 +58,7 @@ describe("apps/api account and user use cases", () => {
     const repository = new InMemoryUserRepository();
     repository.seed(await createUser({ id: "user-1", email: "user@example.com", teamId: " " }));
 
-    const user = await loginUser(repository, { email: "user@example.com", password: "password1234" });
+    const user = await loginUser(repository, { email: "user@example.com", password: "password1234" }, bcryptPasswordOperations);
 
     expect(user.teamId).toBe("team-1");
   });

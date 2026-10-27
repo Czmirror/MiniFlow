@@ -1,16 +1,16 @@
 /** 管理者HTTPとローカルCLIからユーザーを新規作成する。公開signupの入口は持たない。 */
 import { randomUUID } from "node:crypto";
-import { StateConflictError } from "../errors/StateConflictError.js";
+import { StateConflictError } from "../../domain/errors/StateConflictError.js";
 import type { UserRepository } from "../ports/UserRepository.js";
 import { validateEmail } from "./validation/validateEmail.js";
 import { validatePassword } from "./validation/validatePassword.js";
-import { hashPassword } from "../../infrastructure/auth/password.js";
+import type { PasswordOperations } from "../ports/PasswordOperations.js";
 import { optionalDisplayName, optionalLanguage, optionalRole, requiredText } from "./validation/profile.js";
 import type { UserRole } from "../../domain/user/User.js";
 
 /**
- * Registration keeps validation local to auth until cross-domain validation rules
- * actually emerge. Do not generalize this into a framework prematurely.
+ * 入力検証と重複確認後に注入された操作でhashを作り、ユーザーを保存する。
+ * 既存emailは競合例外、hash作成の失敗は未保存のまま呼び出し元へ伝える。
  */
 export async function registerUser(
   repository: UserRepository,
@@ -21,7 +21,8 @@ export async function registerUser(
     language?: "ja" | "en";
     teamId?: string;
     role?: UserRole;
-  }
+  },
+  passwords: Pick<PasswordOperations, "hashPassword">
 ) {
   const email = validateEmail(input.email);
   const password = validatePassword(input.password);
@@ -38,7 +39,7 @@ export async function registerUser(
     throw new StateConflictError("email already exists");
   }
 
-  const passwordHash = await hashPassword(password);
+  const passwordHash = await passwords.hashPassword(password);
   return repository.create({
     id: randomUUID(),
     email,

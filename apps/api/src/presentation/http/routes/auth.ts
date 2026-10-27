@@ -1,9 +1,10 @@
 /** 認証・管理者のユーザー操作をHTTPへ公開する。公開signupは提供しない。 */
 import { randomUUID } from "node:crypto";
 import type { FastifyInstance } from "fastify";
+import type { PasswordOperations } from "../../../application/ports/PasswordOperations.js";
 import type { UserRepository } from "../../../application/ports/UserRepository.js";
 import { InputValidationError } from "../../../application/errors/InputValidationError.js";
-import { StateConflictError } from "../../../application/errors/StateConflictError.js";
+import { StateConflictError } from "../../../domain/errors/StateConflictError.js";
 import { AuthorizationError } from "../../../application/errors/AuthorizationError.js";
 import { loginUser } from "../../../application/auth/LoginUser.js";
 import { registerUser } from "../../../application/auth/RegisterUser.js";
@@ -16,9 +17,9 @@ import { AUTH_COOKIE_NAME, CSRF_COOKIE_NAME, SESSION_TTL_SECONDS } from "../../.
 import { loginSchema, accountSchema, passwordSchema, createUserSchema, userUpdateSchema } from "../validation/schemas.js";
 
 /**
- * Auth routes own cookie issuance and csrf token setup. Keep workflow routes free from these concerns.
+ * 認証cookieとCSRF tokenを発行する。暗号操作は組立から受け取り、認証usecaseへ渡す。
  */
-export function registerAuthRoutes(server: FastifyInstance, repository: UserRepository, csrfSecret: string) {
+export function registerAuthRoutes(server: FastifyInstance, repository: UserRepository, csrfSecret: string, passwords: PasswordOperations) {
   server.post("/auth/login", { schema: loginSchema }, async (request, reply) => {
     const body = (request.body ?? {}) as Partial<{ email: string; password: string }>;
 
@@ -26,7 +27,7 @@ export function registerAuthRoutes(server: FastifyInstance, repository: UserRepo
       const user = await loginUser(repository, {
         email: body.email ?? "",
         password: body.password ?? ""
-      });
+      }, passwords);
 
       const sid = randomUUID();
       const csrfToken = createCsrfToken(csrfSecret, sid);
@@ -98,7 +99,7 @@ export function registerAuthRoutes(server: FastifyInstance, repository: UserRepo
         userId: request.currentUser.id,
         currentPassword: body.currentPassword ?? "",
         newPassword: body.newPassword ?? ""
-      });
+      }, passwords);
 
       if (!user) {
         return reply.code(404).send(notFound("user not found"));
@@ -148,7 +149,7 @@ export function registerAuthRoutes(server: FastifyInstance, repository: UserRepo
         language: body.language,
         teamId: body.teamId ?? "team-1",
         role: body.role ?? "Applicant"
-      });
+      }, passwords);
 
       return reply.code(201).send(toUserManagementDto(user));
     } catch (error) {
@@ -233,11 +234,11 @@ function handleAuthError(reply: import("fastify").FastifyReply, error: unknown, 
   }
 
   if (error instanceof StateConflictError) {
-    return reply.code(error.statusCode).send({
+    return reply.code(409).send({
       error: {
         code: "STATE_CONFLICT",
         message: error.message,
-        status: error.statusCode
+        status: 409
       }
     });
   }

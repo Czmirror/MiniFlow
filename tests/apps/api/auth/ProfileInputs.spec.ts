@@ -1,4 +1,5 @@
 /** auth usecaseをHTTP以外から呼ぶ場合も、部分更新・列挙値・型の契約を維持することを検証する。 */
+import { bcryptPasswordOperations } from "../../../../apps/api/src/infrastructure/auth/password";
 import { describe, expect, it } from "vitest";
 import { updateAccount } from "../../../../apps/api/src/application/auth/UpdateAccount";
 import { updateUser } from "../../../../apps/api/src/application/auth/UpdateUser";
@@ -33,7 +34,7 @@ describe("profile入力と部分更新", () => {
   });
   it.each([{ role: "Root" }, { teamId: null }, { language: "fr" }])("新規ユーザーも無効なprofileでは作成しない: %j", async invalid => {
     const users = repository();
-    await expect(registerUser(users, { email: "new@example.test", password: "fixture-password-only", ...invalid } as never)).rejects.toBeInstanceOf(InputValidationError);
+    await expect(registerUser(users, { email: "new@example.test", password: "fixture-password-only", ...invalid } as never, bcryptPasswordOperations)).rejects.toBeInstanceOf(InputValidationError);
     expect(users.writes).toBe(0);
   });
 });
