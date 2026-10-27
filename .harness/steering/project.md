@@ -140,3 +140,9 @@ Do NOT implement:
 - 一覧の用途はall/mine/pendingApprovals。本人とチームはサーバーの認証情報から解決する。Webの全件集計はサーバー応答を使用する。
 
 - `tests/integration/requestPagination.integration.ts`: 専用の使い捨てPostgreSQLだけでページ境界と同時刻の安定順を検証する明示起動用試験。
+
+## 本人情報の画面同期
+
+- `apps/web/src/lib/managedUserChange.ts`: 管理更新応答が本人の所属・権限境界を変えるかを判定する。
+- `MiniFlowApp.handleUserUpdate`: 本人変更を反映し、所属・role変更では旧画面と未保存入力をresetする。認証破棄後の遅い応答は世代で拒否する。
+- 画面仕様は`docs/specs/account-context.md`、試験は`docs/tests/`、作業記録は`docs/work/account-context-sync/`。

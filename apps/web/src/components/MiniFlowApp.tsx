@@ -2,7 +2,7 @@
 
 // 既存の認証・申請操作を画面に接続する。外観はglobals.cssで定義する。
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import type {
   ListRequestsResponse,
@@ -27,6 +27,7 @@ import {
 import { ApiError, clearCsrfToken } from "../lib/apiTransport";
 import { createRequest, getRequest, transitionRequest, updateRequest } from "../lib/requestApi";
 
+import { managedUserChange } from "../lib/managedUserChange";
 import { useRequestCollection } from "../hooks/useRequestCollection";
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
@@ -59,6 +60,7 @@ const locale: Locale = "ja";
 const messages = {
   ja: {
     appTitle: "ダッシュボード",
+    contextChanged: "所属または権限が変わったため、未保存の申請入力を消去しました。",
     login: "ログイン",
     loggingIn: "ログイン中",
     logout: "ログアウト",
@@ -156,6 +158,7 @@ const messages = {
   },
   en: {
     appTitle: "Dashboard",
+    contextChanged: "Your team or role changed. Unsaved request input has been cleared.",
     login: "Login",
     loggingIn: "Logging in",
     logout: "Logout",
@@ -256,6 +259,8 @@ const messages = {
 let labels: (typeof messages)[Locale] = messages[locale];
 
 export function MiniFlowApp() {
+  // logout/401後に遅い管理更新の応答が本人情報を復帰させないための世代。
+  const sessionEpoch = useRef(0);
   const [currentUser, setCurrentUser] = useState<AuthUserDto | null>(null);
   const [locale, setLocale] = useState<Locale>("ja");
   const [email, setEmail] = useState("demo@example.com");
@@ -297,6 +302,7 @@ export function MiniFlowApp() {
 
   // サーバーが認証を拒否した場合も、再読込なしで再ログインできる状態へ戻す。
   function clearSession() {
+    sessionEpoch.current++;
     clearCsrfToken();
     setCurrentUser(null);
     setPassword("");
@@ -312,6 +318,7 @@ export function MiniFlowApp() {
     setUserForm(initialUserForm);
     setDecisionReason("");
     setMessage(null);
+    setLoading(false);
   }
 
   function handleApiError(caughtError: unknown) {
@@ -601,26 +608,50 @@ export function MiniFlowApp() {
 
   async function handleUserUpdate(
     user: UserManagementDto,
-    input: { displayName?: string | null; language?: Locale; teamId?: string; isActive?: boolean }
+    input: { displayName?: string | null; language?: Locale; teamId?: string; role?: UserRole; isActive?: boolean }
   ) {
+    if (!currentUser) return false;
+    const epoch = sessionEpoch.current;
     setLoading(true);
     setError(null);
     setMessage(null);
 
     try {
-      await updateUser(apiBaseUrl, user.id, {
+      const updated = await updateUser(apiBaseUrl, user.id, {
         displayName: user.displayName,
         language: user.language,
         teamId: user.teamId,
         role: user.role,
         ...input
       });
-      await refreshUsers();
-      setMessage(labels.userUpdated);
+      if (epoch !== sessionEpoch.current) return false;
+      const change = managedUserChange(currentUser, updated);
+      if (change !== "other") {
+        if (!updated.isActive) { clearSession(); return true; }
+        if (change === "context") {
+          collection.reset();
+          setSelectedRequest(null);
+          setApprovals([]);
+          setDecisionReason("");
+          setCreateForm({ ...initialCreateForm, teamId: updated.teamId });
+          setPasswordForm(initialPasswordForm);
+          setUserForm({ ...initialUserForm, teamId: updated.teamId });
+          setUsers([]);
+          setView("dashboard");
+        }
+        setCurrentUser(updated);
+        applyUserSettings(updated);
+        setMessage(change === "context" ? messages[updated.language].contextChanged : messages[updated.language].userUpdated);
+      } else {
+        setMessage(messages[currentUser.language].userUpdated);
+      }
+      if (change !== "context" || updated.role === "Admin") await refreshUsers();
+      return true;
     } catch (caughtError) {
-      handleApiError(caughtError);
+      if (epoch === sessionEpoch.current) handleApiError(caughtError);
+      return false;
     } finally {
-      setLoading(false);
+      if (epoch === sessionEpoch.current) setLoading(false);
     }
   }
 
@@ -1045,7 +1076,7 @@ function UserManagementView({
   onUpdate: (
     user: UserManagementDto,
     input: { displayName?: string | null; language?: Locale; teamId?: string; role?: UserRole; isActive?: boolean }
-  ) => void;
+  ) => Promise<boolean>;
 }) {
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({
@@ -1200,9 +1231,8 @@ function UserManagementView({
                       className="button table-action"
                       type="button"
                       disabled={loading}
-                      onClick={() => {
-                        onUpdate(user, editForm);
-                        setEditingUserId(null);
+                      onClick={async () => {
+                        if (await onUpdate(user, editForm)) setEditingUserId(null);
                       }}
                     >
                       {labels.save}
