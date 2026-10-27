@@ -27,6 +27,8 @@ import {
 import { ApiError, clearCsrfToken } from "../lib/apiTransport";
 import { createRequest, getRequest, transitionRequest, updateRequest } from "../lib/requestApi";
 
+import { requestStatusOptions } from "../lib/requestStatusFilter";
+import type { RequestStatusFilter } from "../lib/requestStatusFilter";
 import { messages } from "../lib/messages";
 import type { Labels, Locale } from "../lib/messages";
 import { currentRequestDetail } from "../lib/currentRequestDetail";
@@ -71,6 +73,7 @@ export function MiniFlowApp() {
   const [users, setUsers] = useState<UserManagementDto[]>([]);
   const [selectedRequest, setSelectedRequest] = useState<RequestDto | null>(null);
   const [approvals, setApprovals] = useState<ApprovalDto[]>([]);
+  const [detailReturnView, setDetailReturnView] = useState<"requests" | "mine">("requests");
   const [view, setView] = useState<View>("dashboard");
   const [createForm, setCreateForm] = useState<CreateRequestInput>(initialCreateForm);
   const [accountForm, setAccountForm] = useState({ displayName: "", language: "ja" as Locale });
@@ -221,6 +224,7 @@ export function MiniFlowApp() {
         ? await transitionRequest(apiBaseUrl, created.id, "submit")
         : created;
       await refreshRequests();
+      setDetailReturnView("requests");
       await openDetail(nextRequest.id);
       setTeamId(created.teamId);
       setCreateForm({ ...initialCreateForm, teamId: created.teamId });
@@ -243,6 +247,7 @@ export function MiniFlowApp() {
   }
 
   async function handleOpenDetail(id: string) {
+    setDetailReturnView(view === "mine" ? "mine" : "requests");
     const epoch = detailEpoch.current + 1;
     setLoading(true);
     setError(null);
@@ -544,7 +549,7 @@ export function MiniFlowApp() {
       <section className="workspace">
         <StatusMessage error={error} message={message} />
 
-        {["dashboard", "requests", "mine", "pending"].includes(view) && !collection.data ? (
+        {view === "dashboard" && !collection.data ? (
           <section className="empty-state" aria-live="polite">
             <p>{collection.error ?? labels.loadingRequests}</p>
             {collection.error ? <button className="button secondary" type="button" onClick={() => void collection.reload()}>{labels.reload}</button> : null}
@@ -555,8 +560,10 @@ export function MiniFlowApp() {
           <Dashboard labels={labels} stats={collection.data.summary} pendingApprovals={collection.data.listing.items} onOpenDetail={handleOpenDetail} />
         ) : null}
 
-        {["requests", "mine", "pending"].includes(view) && collection.data ? (
-          <RequestList labels={labels} loading={collection.loading} title={currentPageTitle} listing={collection.data.listing} onPage={collection.changePage} onOpenDetail={handleOpenDetail} />
+        {["requests", "mine", "pending"].includes(view) ? (
+          <RequestList labels={labels} loading={collection.loading} error={collection.error} onReload={collection.reload}
+            title={currentPageTitle} listing={collection.data?.listing ?? null} onPage={collection.changePage} onOpenDetail={handleOpenDetail}
+            statusFilter={collection.statusFilter} onStatusChange={view === "pending" ? undefined : collection.changeStatus} />
         ) : null}
 
         {view === "create" ? (
@@ -604,7 +611,7 @@ export function MiniFlowApp() {
             decisionReason={decisionReason}
             loading={loading}
             request={selectedRequest}
-            onBack={() => setView("requests")}
+            onBack={() => setView(detailReturnView)}
             onDecision={handleDecision}
             onDecisionReasonChange={setDecisionReason}
             onReviseRequest={handleReviseRequest}
@@ -666,30 +673,46 @@ function Metric({ label, value }: { label: string; value: number }) {
   );
 }
 
-function RequestList({ labels, title, listing, loading, onPage, onOpenDetail }: {
+/** 一覧の状態条件と取得結果を表示する。条件・通信の寿命は親の取得hookが所有する。 */
+export function RequestList({ labels, title, listing, loading, error, onReload, statusFilter, onStatusChange, onPage, onOpenDetail }: {
   labels: Labels;
   loading: boolean;
+  error: string | null;
+  onReload: () => void;
   title: string;
-  listing: ListRequestsResponse;
+  listing: ListRequestsResponse | null;
+  statusFilter: RequestStatusFilter;
+  onStatusChange?: (value: string) => void;
   onPage: (page: number) => void;
   onOpenDetail: (id: string) => void;
 }) {
-  const pages = Math.max(1, Math.ceil(listing.total / listing.limit));
-  const start = listing.total === 0 ? 0 : (listing.page - 1) * listing.limit + 1;
-  const end = start === 0 ? 0 : start + listing.items.length - 1;
+  const pages = listing ? Math.max(1, Math.ceil(listing.total / listing.limit)) : 1;
+  const start = !listing || listing.total === 0 ? 0 : (listing.page - 1) * listing.limit + 1;
+  const end = !listing || start === 0 ? 0 : start + listing.items.length - 1;
   return (
     <div className="screen-grid">
       <section className="screen-header">
         <div><p className="eyebrow">{labels.requests}</p><h2>{title}</h2></div>
+        {onStatusChange ? <label className="field request-status-filter">
+          <span>{labels.status}</span>
+          <select value={statusFilter} onChange={event => onStatusChange(event.target.value)}>
+            <option value="">{labels.allStatuses}</option>
+            {requestStatusOptions.map(status => <option key={status} value={status}>{labels.statusLabels[status]}</option>)}
+          </select>
+        </label> : null}
       </section>
-      <RequestTable labels={labels} disabled={loading} requests={listing.items} onOpenDetail={onOpenDetail} emptyText={labels.noRequests} />
-      <nav className="pagination" aria-busy={loading} aria-label={`${title} pagination`}>
-        <p aria-live="polite">{loading ? labels.loadingRequests : null} {start}–{end} / {listing.total} · {listing.page} / {pages}</p>
-        <div className="form-actions">
-          <button className="button secondary" type="button" disabled={loading || listing.page <= 1} onClick={() => onPage(listing.page - 1)}>{labels.previousPage}</button>
-          <button className="button secondary" type="button" disabled={loading || listing.page >= pages} onClick={() => onPage(listing.page + 1)}>{labels.nextPage}</button>
-        </div>
-      </nav>
+      {error ? <section className="empty-state" role="alert"><p>{error}</p><button className="button secondary" type="button" onClick={onReload}>{labels.reload}</button></section> : null}
+      {!listing && !error ? <p className="empty-state" aria-live="polite">{labels.loadingRequests}</p> : null}
+      {listing ? <>
+        <RequestTable labels={labels} disabled={loading} requests={listing.items} onOpenDetail={onOpenDetail} emptyText={statusFilter ? labels.noMatchingRequests : labels.noRequests} />
+        <nav className="pagination" aria-busy={loading} aria-label={`${title} pagination`}>
+          <p aria-live="polite">{loading ? labels.loadingRequests : null} {start}–{end} / {listing.total} · {listing.page} / {pages}</p>
+          <div className="form-actions">
+            <button className="button secondary" type="button" disabled={loading || listing.page <= 1} onClick={() => onPage(listing.page - 1)}>{labels.previousPage}</button>
+            <button className="button secondary" type="button" disabled={loading || listing.page >= pages} onClick={() => onPage(listing.page + 1)}>{labels.nextPage}</button>
+          </div>
+        </nav>
+      </> : null}
     </div>
   );
 }
