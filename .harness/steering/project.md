@@ -103,6 +103,8 @@ Do NOT implement:
 - `apps/api/src/domain/`: 現行のRequest/Approval/User。申請テストの正本。
 - `apps/api/src/infrastructure/`: Prisma・DB・password/JWT等の外部I/O。
 - `apps/web/app/` と `apps/web/src/`: Next.jsの入口、画面、APIクライアント。
+- `apps/web/src/components/RequestDeleteAction.tsx`: 申請名・注意書き・キャンセルを持つ削除確認。通信は親画面が担当する。
+- `apps/web/src/lib/canDeleteRequest.ts`: 同じチームの本人または管理者に、下書き・差し戻しの削除操作を表示する条件。サーバーの認可を代替しない。
 - `packages/shared/src/`: 通信用の共有型。`src/shared/api-types.ts` はOpenAPI生成型として保持。
 - `tests/domain/` と `tests/application/`: 現行APIの状態遷移・usecaseを検証。旧rootのdomain/applicationは削除済み。
 - `tests/support/requests.ts`: 固定時刻のfixtureとメモリ保存先。業務ルールは本番からimportする。
