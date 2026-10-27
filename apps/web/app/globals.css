@@ -777,3 +777,9 @@ td small {
   font-size: var(--text-sm);
   font-variant-numeric: tabular-nums;
 }
+
+/* 状態選択は既存の入力styleと余白を使い、狭い画面でも見出しと一緒に折り返す。 */
+.request-status-filter {
+  width: 100%;
+  max-width: var(--sidebar-width);
+}

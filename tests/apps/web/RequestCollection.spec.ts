@@ -48,3 +48,37 @@ describe("ページ読込の境界", () => {
     await expect(loadRequestCollection("http://fixture.test", "all", 1, false, () => true)).rejects.toThrow();
   });
 });
+
+describe("状態条件を持つ取得", () => {
+  it("補正後もstatusを維持し、全件集計は絞り込まない", async () => {
+    const urls: URL[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      const parsed = new URL(url); urls.push(parsed);
+      return response(url.endsWith("/summary") ? summary : { items: [], page: Number(parsed.searchParams.get("page")), limit: 20, total: 21 });
+    }));
+    const result = await loadRequestCollection("http://fixture.test", "mine", 3, false, () => true, "Approved");
+    expect(result?.listing.page).toBe(2);
+    expect(result?.summary.total).toBe(41);
+    const lists = urls.filter(url => url.pathname === "/requests");
+    expect(lists.map(url => url.searchParams.get("status"))).toEqual(["Approved", "Approved"]);
+    expect(lists.map(url => url.searchParams.get("scope"))).toEqual(["mine", "mine"]);
+    expect(urls.find(url => url.pathname.endsWith("summary"))?.search).toBe("");
+  });
+  it("ダッシュボードは一覧条件を使わない", async () => {
+    const urls: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => { urls.push(url); return response(url.endsWith("summary") ? summary : { items: [], page: 1, limit: 5, total: 3 }); }));
+    await loadRequestCollection("http://fixture.test", "pendingApprovals", 1, true, () => true, "Approved");
+    expect(urls.every(url => !new URL(url).searchParams.has("status"))).toBe(true);
+  });
+  it.each([false, true])("条件変更後の遅い応答は成功/失敗とも破棄する: failure=%s", async fail => {
+    let current = true;
+    let complete!: () => void;
+    vi.stubGlobal("fetch", vi.fn((url: string) => url.endsWith("summary") ? Promise.resolve(response(summary)) : new Promise<Response>((resolve, reject) => {
+      complete = () => fail ? reject(new Error("old condition failure")) : resolve(response({ items: [], page: 1, limit: 20, total: 3 }));
+    })));
+    const pending = loadRequestCollection("http://fixture.test", "all", 1, false, () => current, "Draft");
+    current = false;
+    complete();
+    expect(await pending).toBeNull();
+  });
+});

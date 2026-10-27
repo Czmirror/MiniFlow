@@ -161,3 +161,10 @@ Do NOT implement:
 - `application/ports/PasswordOperations.ts`: 認証usecaseが受け取る非同期hash・照合の契約。
 - `infrastructure/auth/password.ts`: 既存のbcrypt実装。HTTPとCLIの組立がusecaseへ明示的に渡す。
 - 試験と記録は`docs/tests/unit/api-dependency-boundaries.md`と`docs/work/api-dependency-boundaries/`。
+
+## 一覧の状態フィルター
+
+- `lib/requestStatusFilter.ts`: 固定選択肢と未知値の拒否。表示名は既存messagesを使う。
+- `useRequestCollection`: 一覧別の条件を認証・所属境界内で保持し、条件変更でpageと取得世代を更新する。
+- `MiniFlowApp.RequestList`: 条件・取得結果・再試行を表示し、通信は取得hookへ委ねる。
+- 仕様は`docs/specs/request-status-filter.md`、試験と記録は`docs/tests/`と`docs/work/request-status-filter/`。
