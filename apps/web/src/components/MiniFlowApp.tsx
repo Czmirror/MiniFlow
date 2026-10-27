@@ -27,6 +27,7 @@ import {
 import { ApiError, clearCsrfToken } from "../lib/apiTransport";
 import { createRequest, getRequest, transitionRequest, updateRequest } from "../lib/requestApi";
 
+import { currentRequestDetail } from "../lib/currentRequestDetail";
 import { managedUserChange } from "../lib/managedUserChange";
 import { useRequestCollection } from "../hooks/useRequestCollection";
 
@@ -261,6 +262,8 @@ let labels: (typeof messages)[Locale] = messages[locale];
 export function MiniFlowApp() {
   // logout/401後に遅い管理更新の応答が本人情報を復帰させないための世代。
   const sessionEpoch = useRef(0);
+  // 詳細取得の世代。所属・認証の変更と新しい詳細取得で以前の応答を破棄する。
+  const detailEpoch = useRef(0);
   const [currentUser, setCurrentUser] = useState<AuthUserDto | null>(null);
   const [locale, setLocale] = useState<Locale>("ja");
   const [email, setEmail] = useState("demo@example.com");
@@ -303,6 +306,7 @@ export function MiniFlowApp() {
   // サーバーが認証を拒否した場合も、再読込なしで再ログインできる状態へ戻す。
   function clearSession() {
     sessionEpoch.current++;
+    detailEpoch.current++;
     clearCsrfToken();
     setCurrentUser(null);
     setPassword("");
@@ -430,7 +434,9 @@ export function MiniFlowApp() {
   }
 
   async function openDetail(id: string) {
-    const detail = await getRequest(apiBaseUrl, id);
+    const epoch = ++detailEpoch.current;
+    const detail = await currentRequestDetail(() => getRequest(apiBaseUrl, id), () => epoch === detailEpoch.current);
+    if (!detail) return;
     setSelectedRequest(detail.request);
     setApprovals(detail.approvals);
     setDecisionReason("");
@@ -438,6 +444,7 @@ export function MiniFlowApp() {
   }
 
   async function handleOpenDetail(id: string) {
+    const epoch = detailEpoch.current + 1;
     setLoading(true);
     setError(null);
     setMessage(null);
@@ -445,9 +452,9 @@ export function MiniFlowApp() {
     try {
       await openDetail(id);
     } catch (caughtError) {
-      handleApiError(caughtError);
+      if (epoch === detailEpoch.current) handleApiError(caughtError);
     } finally {
-      setLoading(false);
+      if (epoch === detailEpoch.current) setLoading(false);
     }
   }
 
@@ -629,6 +636,7 @@ export function MiniFlowApp() {
       if (change !== "other") {
         if (!updated.isActive) { clearSession(); return true; }
         if (change === "context") {
+          detailEpoch.current++;
           collection.reset();
           setSelectedRequest(null);
           setApprovals([]);

@@ -143,6 +143,7 @@ Do NOT implement:
 
 ## 本人情報の画面同期
 
+- `apps/web/src/lib/currentRequestDetail.ts`: 呼び出し元の世代と照合し、古い詳細の成功・失敗を破棄する。通信と画面状態は所有しない。
 - `apps/web/src/lib/managedUserChange.ts`: 管理更新応答が本人の所属・権限境界を変えるかを判定する。
 - `MiniFlowApp.handleUserUpdate`: 本人変更を反映し、所属・role変更では旧画面と未保存入力をresetする。認証破棄後の遅い応答は世代で拒否する。
 - 画面仕様は`docs/specs/account-context.md`、試験は`docs/tests/`、作業記録は`docs/work/account-context-sync/`。

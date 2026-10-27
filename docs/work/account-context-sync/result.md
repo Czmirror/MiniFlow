@@ -42,3 +42,13 @@ Codexが2026-10-27に、DBへ接続しない本番HTTP＋既存のメモリ保�
 依存・公開API・DB schema・migration・CI・Harness設定の変更なし。範囲外で見つけたこと: なし。既存の共有可変辞書と全画面の分割は計画どおり今回行っていない。
 
 人間の承認は計画提示後の「ok、通常PRまでお願いします」。最終的な人間の受け入れは未実施。
+
+## PRレビューの詳細応答競合への対応
+
+[PR #9の指摘](https://github.com/Czmirror/MiniFlow/pull/9#discussion_r4385374160)は妥当だった。初回のソース確認では、旧詳細を消しても取得中の応答が戻す経路を見落としていた。詳細の世代を本人の所属・権限変更、認証破棄、新しい詳細取得で進め、古い成功・失敗・loading解除を適用しないよう修正した。`currentRequestDetail`は応答の有効性だけを照合し、画面状態の所有は変えない。
+
+FT5は同じメモリAPIと専用Webで実施した。本人更新を処理前に15秒、旧詳細応答を20秒遅延させた。保存中に旧所属の一覧から詳細を開き、応答後も新所属のダッシュボードと全件数2が残ることを確認した。console error/warnは0件。証拠は`.harness/reports/account-detail-guard.png`。旧詳細の異常応答と現在の応答は追加単体試験で確認した。実DB・実機・他ブラウザ・200%拡大の未確認は従来どおり。
+
+追加差分に対するRunnerはformat・型検査・19ファイル222テスト・API/Web本番build・secretsが成功した。lintは既存未整備でskipped。ログは`.harness/reports/account-detail-validation.log`。自己レビューと別文脈のAI独立レビューでは、詳細の成功・失敗・finally、認証境界と仕様AC1/AC4を照合し、コードの指摘なし。地図・単体試験仕様・機能試験仕様を更新した。これは人間の最終受け入れではない。依存・API・DB・migration変更なし。
+
+文書検査の初回は存在しない`check-format.mjs`を指定して失敗した。Project Profileで定義された`check-text-style.mjs`へ修正して再実行した。
