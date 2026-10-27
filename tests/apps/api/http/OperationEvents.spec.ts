@@ -1,6 +1,6 @@
 /** 本番HTTPの応答完了イベントを捕捉し、commit後だけの成功、拒否/障害、秘密・自由文の不出力を確認する。 */
 import { describe, expect, it } from "vitest";
-import { StateConflictError } from "../../../../apps/api/src/application/errors/StateConflictError";
+import { StateConflictError } from "../../../../apps/api/src/domain/errors/StateConflictError";
 import { httpFixture, testPassword, userIds } from "../../../support/http";
 import { Request } from "../../../../apps/api/src/domain/request/Request";
 

@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { requestInState } from "../../../support/requests";
 import { Request } from "../../../../apps/api/src/domain/request/Request";
 import { PrismaRequestRepository } from "../../../../apps/api/src/infrastructure/repositories/PrismaRequestRepository";
-import { StateConflictError } from "../../../../apps/api/src/application/errors/StateConflictError";
+import { StateConflictError } from "../../../../apps/api/src/domain/errors/StateConflictError";
 
 describe("申請の保存version", () => {
   it("取得versionは全遷移で保持し、作成時は0", () => {

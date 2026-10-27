@@ -3,12 +3,14 @@
  * 認可はapplicationテストで確認し、ここでは時計を固定してDBなしで実行する。
  */
 import { describe, expect, it } from "vitest";
-import { StateConflictError } from "../../../apps/api/src/application/errors/StateConflictError";
+import { StateConflictError } from "../../../apps/api/src/domain/errors/StateConflictError";
 import { Request } from "../../../apps/api/src/domain/request/Request";
 import type { Status } from "../../../apps/api/src/domain/request/Status";
 import { approverId, baseTime, requestInState } from "../../support/requests";
 
 type Action = "submit" | "approve" | "reject" | "revise" | "delete" | "update";
+// HTTP statusはHTTP試験で確認し、ここでは業務例外と理由を確認する。
+const forbiddenMessages: Record<Action, string> = { submit: "submit is only allowed in Draft", approve: "approve is only allowed in Pending", reject: "reject is only allowed in Pending", revise: "revise is only allowed in Rejected", delete: "delete is only allowed in Draft/Rejected", update: "update is only allowed in Draft" };
 const actions: Action[] = ["submit", "approve", "reject", "revise", "delete", "update"];
 const transitions: Array<{ id: string; from: Status; action: Action; to: Status; approvalDelta: number }> = [
   { id: "T01", from: "Draft", action: "submit", to: "Pending", approvalDelta: 0 },
@@ -51,11 +53,11 @@ describe("現行API Requestの状態遷移", () => {
   });
 
   for (const row of forbidden) {
-    it.each(row.actions)(`${row.id} ${row.from}の%sを409で拒否し元の状態を保つ`, (action) => {
+    it.each(row.actions)(`${row.id} ${row.from}の%sを競合例外で拒否し元の状態を保つ`, (action) => {
       const before = requestInState(row.from);
       const snapshot = { ...before, approvals: [...before.approvals] };
       expect(() => perform(before, action)).toThrow(StateConflictError);
-      expect(() => perform(before, action)).toThrow(expect.objectContaining({ statusCode: 409 }));
+      expect(() => perform(before, action)).toThrow(expect.objectContaining({ message: forbiddenMessages[action] }));
       expect({ ...before }).toEqual(snapshot);
     });
   }

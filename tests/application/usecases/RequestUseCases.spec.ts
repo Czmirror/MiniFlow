@@ -14,7 +14,7 @@ import { submitRequest } from "../../../apps/api/src/application/requests/Submit
 import { updateRequest } from "../../../apps/api/src/application/requests/UpdateRequest";
 import { AuthorizationError } from "../../../apps/api/src/application/errors/AuthorizationError";
 import { InputValidationError } from "../../../apps/api/src/application/errors/InputValidationError";
-import { StateConflictError } from "../../../apps/api/src/application/errors/StateConflictError";
+import { StateConflictError } from "../../../apps/api/src/domain/errors/StateConflictError";
 import type { RequestRepository } from "../../../apps/api/src/application/ports/RequestRepository";
 import type { Status } from "../../../apps/api/src/domain/request/Status";
 import type { UserRole } from "../../../apps/api/src/domain/user/User";

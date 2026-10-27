@@ -1,5 +1,5 @@
 /** 申請のPrisma保存を担う。全更新は取得versionで競合を検知し、決定履歴は状態と同じtransactionへ保存する。 */
-import { StateConflictError } from "../../application/errors/StateConflictError.js";
+import { StateConflictError } from "../../domain/errors/StateConflictError.js";
 import type { Prisma, PrismaClient } from "@prisma/client";
 import type { RequestRepository, NormalizedListRequestsInput } from "../../application/ports/RequestRepository.js";
 import type { RequestSummary } from "@miniflow/shared";

@@ -1,6 +1,6 @@
 /** 申請の状態遷移を不変な値として表す。取得時の保存versionは次の条件付き保存まで引き継ぐ。 */
 import type { Status } from "./Status.js";
-import { StateConflictError } from "../../application/errors/StateConflictError.js";
+import { StateConflictError } from "../errors/StateConflictError.js";
 import { Approval } from "./Approval.js";
 
 /**

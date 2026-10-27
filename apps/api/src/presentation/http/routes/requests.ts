@@ -3,7 +3,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import type { RequestRepository } from "../../../application/ports/RequestRepository.js";
 import type { ListRequestsInput } from "@miniflow/shared";
 import { InputValidationError } from "../../../application/errors/InputValidationError.js";
-import { StateConflictError } from "../../../application/errors/StateConflictError.js";
+import { StateConflictError } from "../../../domain/errors/StateConflictError.js";
 import { AuthorizationError } from "../../../application/errors/AuthorizationError.js";
 import { createRequest } from "../../../application/requests/CreateRequest.js";
 import { approveRequest } from "../../../application/requests/ApproveRequest.js";
@@ -367,11 +367,11 @@ function handleRouteError(
   }
 
   if (error instanceof StateConflictError) {
-    return reply.code(error.statusCode).send({
+    return reply.code(409).send({
       error: {
         code: "STATE_CONFLICT",
         message: error.message,
-        status: error.statusCode
+        status: 409
       }
     });
   }
