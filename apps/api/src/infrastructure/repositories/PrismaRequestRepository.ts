@@ -2,6 +2,7 @@
 import { StateConflictError } from "../../application/errors/StateConflictError.js";
 import type { Prisma, PrismaClient } from "@prisma/client";
 import type { RequestRepository, NormalizedListRequestsInput } from "../../application/ports/RequestRepository.js";
+import type { RequestSummary } from "@miniflow/shared";
 import { Approval } from "../../domain/request/Approval.js";
 import { Request } from "../../domain/request/Request.js";
 
@@ -11,6 +12,18 @@ import { Request } from "../../domain/request/Request.js";
  */
 export class PrismaRequestRepository implements RequestRepository {
   constructor(private readonly prisma: PrismaClient) {}
+
+  async summary(teamId: string, actorId: string): Promise<RequestSummary> {
+    // 1回の集計内で指標の時点がずれないよう、PostgreSQLの同一snapshotで読む。
+    const where: Prisma.RequestRecordWhereInput = { teamId, status: { not: "Deleted" } };
+    const countStatus = (status: Request["status"]) => this.prisma.requestRecord.count({ where: { teamId, status } });
+    const [total, mine, pending, approved, rejected, drafts] = await this.prisma.$transaction([
+      this.prisma.requestRecord.count({ where }),
+      this.prisma.requestRecord.count({ where: { ...where, createdBy: actorId } }),
+      countStatus("Pending"), countStatus("Approved"), countStatus("Rejected"), countStatus("Draft")
+    ], { isolationLevel: "RepeatableRead" });
+    return { total, mine, pending, approved, rejected, drafts };
+  }
 
   async create(request: Request): Promise<Request> {
     const record = await this.prisma.requestRecord.create({
@@ -123,8 +136,11 @@ export class PrismaRequestRepository implements RequestRepository {
     limit: number;
     total: number;
   }> {
+    if (input.empty) return { items: [], page: input.page, limit: input.limit, total: 0 };
     const where: Prisma.RequestRecordWhereInput = {
-      teamId: input.teamId
+      teamId: input.teamId,
+      ...(input.createdBy ? { createdBy: input.createdBy } : {}),
+      ...(input.excludeCreatedBy ? { createdBy: { not: input.excludeCreatedBy } } : {})
     };
 
     if (!input.includeDeleted) {
@@ -155,9 +171,7 @@ export class PrismaRequestRepository implements RequestRepository {
             }
           }
         },
-        orderBy: {
-          createdAt: "desc"
-        },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         skip: (input.page - 1) * input.limit,
         take: input.limit
       }),

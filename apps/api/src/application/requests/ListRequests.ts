@@ -6,11 +6,18 @@ import type { ListRequestsInput } from "@miniflow/shared";
  * Deleted filtering defaults live here so HTTP and future non-HTTP callers keep
  * the same listing semantics.
  */
-export async function listRequests(repository: RequestRepository, input: ListRequestsInput) {
+export async function listRequests(repository: RequestRepository, input: ListRequestsInput, actor?: { id: string; role: string }) {
   validateRequiredString(input.teamId, "teamId");
 
   if (input.status !== undefined && !["Draft", "Pending", "Approved", "Rejected", "Deleted"].includes(input.status)) {
     throw new InputValidationError("status must be a known request status");
+  }
+
+  const scope = input.scope ?? "all";
+  if (!["all", "mine", "pendingApprovals"].includes(scope)) throw new InputValidationError("scope must be a known request scope");
+  if (scope !== "all" && !actor?.id) throw new InputValidationError("actor is required for scoped requests");
+  if (scope === "pendingApprovals" && input.status !== undefined && input.status !== "Pending") {
+    throw new InputValidationError("pendingApprovals requires Pending status");
   }
 
   const page = input.page ?? 1;
@@ -39,7 +46,10 @@ export async function listRequests(repository: RequestRepository, input: ListReq
 
   const normalizedInput: NormalizedListRequestsInput = {
     teamId: input.teamId.trim(),
-    status: input.status,
+    status: scope === "pendingApprovals" ? "Pending" : input.status,
+    createdBy: scope === "mine" ? actor?.id : undefined,
+    excludeCreatedBy: scope === "pendingApprovals" ? actor?.id : undefined,
+    empty: scope === "pendingApprovals" && actor?.role === "Applicant" ? true : undefined,
     includeDeleted: input.includeDeleted ?? false,
     from: input.from,
     to: input.to,

@@ -36,6 +36,7 @@ CORSの読取制限を認証やCSRF防御の代わりに扱わない。
 | POST /users | 保護・変更、Adminのみ、email/passwordと任意profile | 201、UserManagement |
 | PATCH /users/:id | 保護・変更、Adminのみ、UUIDと任意profile/team/role/isActive | 200、UserManagement |
 | POST /requests | 保護・変更、title/body | 201、Request（Draft） |
+| GET /requests/summary | 保護、認証userのteamと本人で全件集計 | 200、{total,mine,pending,approved,rejected,drafts} |
 | GET /requests | 保護、認証userのteamで絞る | 200、{items,page,limit,total} |
 | GET /requests/:id | 保護、同じteam | 200、{request,approvals} |
 | PATCH /requests/:id | 保護・変更、同teamの作成者またはAdmin、Draftのみ | 200、Request |
@@ -118,3 +119,11 @@ DBのsessionVersion追加はmigrationファイルを用意するが、既存DB�
 
 入力の正本は現行API。新しい文字数・Unicode・password規則は追加しない。versionはDB取得の非負整数だけを内部で扱い、HTTPから指定させない。CSRF入力は定めた署名付き形式だけを検証し、不正入力で書き込まない。
 サーバー取得より前に別操作が終わった古い画面の内容まではAC1で検出しない。これを防ぐ公開version/If-Matchは別仕様とする。
+
+## 申請の用途別ページと全件集計
+
+`GET /requests`の`scope`は`all`（既定）、`mine`、`pendingApprovals`。`mine`は本人の申請、`pendingApprovals`は同一チームの自分以外のPendingを返す。Applicantの承認待ちは0件。任意のteam・createdByを指定して対象を変更できない。既存のstatus/date条件はANDで適用し、pendingApprovalsでPending以外のstatusを指定した場合は400。作成日時降順、同時刻はID降順。page/limitとincludeDeletedの既存契約は維持する。
+
+`GET /requests/summary`はqueryを受け付けない。認証チームのDeleted以外から6指標を同一スナップショットで返す。`mine`は本人、`pending`はチーム全体のPending。各HTTP応答間の時点一致は保証しない。
+
+Webの申請一覧・自分の申請・承認待ちは20件ずつ取得し、表示範囲と総件数、前後ページを示す。ダッシュボードの承認待ちは5件まで。画面切替で1ページへ戻り、空になった最終ページは有効ページへ1回補正する。旧認証・旧画面の応答を適用せず、取得失敗を0件に置き換えない。

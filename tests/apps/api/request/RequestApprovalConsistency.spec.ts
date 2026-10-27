@@ -268,6 +268,7 @@ describe("apps/api Prisma approval persistence contract", () => {
 });
 
 class InMemoryRequestRepository implements RequestRepository {
+  async summary(): Promise<never> { throw new Error("summary is outside this fixture contract"); }
   approveCalled = 0;
   updateCalled = 0;
   private readonly store = new Map<string, Request>();

@@ -93,6 +93,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/requests/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Count all non-deleted requests in the authenticated team
+         * @description Rejects query parameters. One snapshot for all counters; mine is the authenticated actor and pending is the entire team.
+         */
+        get: operations["getRequestSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/requests/{id}": {
         parameters: {
             query?: never;
@@ -563,6 +583,8 @@ export interface operations {
     listRequests: {
         parameters: {
             query?: {
+                /** @description mine is the authenticated actor; pendingApprovals is Pending by other actors in the same team, empty for Applicant. Other status filters with pendingApprovals return 400. */
+                scope?: "all" | "mine" | "pendingApprovals";
                 status?: components["schemas"]["RequestStatus"];
                 /** @description A date string accepted by Date.parse */
                 from?: string;
@@ -616,6 +638,36 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    getRequestSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Full-team counters */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        total: number;
+                        mine: number;
+                        pending: number;
+                        approved: number;
+                        rejected: number;
+                        drafts: number;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
             500: components["responses"]["InternalServerError"];
         };
     };

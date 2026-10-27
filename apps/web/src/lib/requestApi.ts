@@ -1,4 +1,4 @@
-import type { CreateRequestInput, ListRequestsResponse, RequestDetailDto, RequestDto } from "@miniflow/shared";
+import type { CreateRequestInput, ListRequestsResponse, RequestDetailDto, RequestDto, RequestSummary, RequestListScope } from "@miniflow/shared";
 import { csrfHeaders, parseResponse } from "./apiTransport";
 
 /**
@@ -21,8 +21,11 @@ export async function createRequest(apiBaseUrl: string, input: CreateRequestInpu
   return parseResponse<RequestDto>(response);
 }
 
-export async function listRequests(apiBaseUrl: string, includeDeleted = true): Promise<ListRequestsResponse> {
+export async function listRequests(apiBaseUrl: string, includeDeleted = true, options: { scope?: RequestListScope; page?: number; limit?: number } = {}): Promise<ListRequestsResponse> {
   const params = new URLSearchParams({ includeDeleted: String(includeDeleted) });
+  if (options.scope) params.set("scope", options.scope);
+  if (options.page !== undefined) params.set("page", String(options.page));
+  if (options.limit !== undefined) params.set("limit", String(options.limit));
   const response = await fetch(`${apiBaseUrl}/requests?${params.toString()}`, {
     cache: "no-store",
     credentials: "include"
@@ -75,4 +78,9 @@ export async function transitionRequest(
   });
 
   return parseResponse<RequestDto>(response);
+}
+
+/** チーム全体の集計を取得する。本人とチームはサーバーが認証情報から解決する。 */
+export async function fetchRequestSummary(apiBaseUrl: string): Promise<RequestSummary> {
+  return parseResponse<RequestSummary>(await fetch(`${apiBaseUrl}/requests/summary`, { cache: "no-store", credentials: "include" }));
 }

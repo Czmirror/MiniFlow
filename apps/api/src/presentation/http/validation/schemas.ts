@@ -25,7 +25,9 @@ export const userUpdateSchema = { params: idParams, body: objectBody(managed) };
 export const createRequestSchema = { body: objectBody({ title: nonBlank, body: nonBlank }, ["title", "body"]) };
 export const updateRequestSchema = { params: idParams, body: { ...objectBody({ title: nonBlank, body: nonBlank }), anyOf: [{ required: ["title"] }, { required: ["body"] }] } };
 export const decisionSchema = { params: idParams, body: objectBody({ reason: text }) };
+export const requestSummarySchema = { querystring: { type: "object", properties: {}, additionalProperties: false } };
 export const requestListSchema = { querystring: objectBody({
+  scope: { type: "string", enum: ["all", "mine", "pendingApprovals"] },
   status: { type: "string", enum: ["Draft", "Pending", "Approved", "Rejected", "Deleted"] },
   includeDeleted: { type: "string", enum: ["true", "false"] },
   page: text, limit: text, from: text, to: text

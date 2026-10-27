@@ -131,3 +131,12 @@ Do NOT implement:
 - `presentation/http/operationEvents.ts`は応答完了後の業務イベントを固定fieldで記録する。
 - `tests/integration/requestConcurrency.integration.ts`は専用DBへの明示起動用。既存.envを使わず、承認された使い捨てDBに限定する。
 - 第3段階の仕様はdocs/API.md、試験はdocs/tests、計画と記録はdocs/work/concurrency-csrf。
+
+## 申請のページ送りと集計
+
+- `application/requests/GetRequestSummary.ts`: 同一チームの全件集計をrepositoryへ依頼する。
+- `apps/web/src/hooks/useRequestCollection.ts`: 認証・画面・ページに対応する取得状態と旧応答の無効化。
+- `apps/web/src/lib/requestCollection.ts`: 全件集計と用途別ページの取得、空の最終ページの補正。
+- 一覧の用途はall/mine/pendingApprovals。本人とチームはサーバーの認証情報から解決する。Webの全件集計はサーバー応答を使用する。
+
+- `tests/integration/requestPagination.integration.ts`: 専用の使い捨てPostgreSQLだけでページ境界と同時刻の安定順を検証する明示起動用試験。
