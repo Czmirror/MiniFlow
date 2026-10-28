@@ -77,7 +77,7 @@ export function MiniFlowApp() {
   const [users, setUsers] = useState<UserManagementDto[]>([]);
   const [selectedRequest, setSelectedRequest] = useState<RequestDto | null>(null);
   const [approvals, setApprovals] = useState<ApprovalDto[]>([]);
-  const [detailReturnView, setDetailReturnView] = useState<"requests" | "mine">("requests");
+  const [detailReturnView, setDetailReturnView] = useState<"requests" | "mine" | "pending">("requests");
   const [view, setView] = useState<View>("dashboard");
   const [createForm, setCreateForm] = useState<CreateRequestInput>(initialCreateForm);
   const [accountForm, setAccountForm] = useState({ displayName: "", language: "ja" as Locale });
@@ -253,7 +253,7 @@ export function MiniFlowApp() {
   }
 
   async function handleOpenDetail(id: string) {
-    setDetailReturnView(view === "mine" ? "mine" : "requests");
+    setDetailReturnView(view === "mine" || view === "pending" ? view : "requests");
     const epoch = detailEpoch.current + 1;
     setLoading(true);
     setError(null);

@@ -139,6 +139,7 @@ Do NOT implement:
 - `application/requests/GetRequestSummary.ts`: 同一チームの全件集計をrepositoryへ依頼する。
 - `apps/web/src/hooks/useRequestCollection.ts`: 認証・画面・ページに対応する取得状態と旧応答の無効化。
 - `apps/web/src/lib/requestCollection.ts`: 全件集計と用途別ページの取得、空の最終ページの補正。
+- `apps/web/src/lib/requestListSelection.ts`: 一覧別のページ・状態条件を扱う純粋な状態操作。認証・所属・権限の境界が変わると初期位置に戻す。
 - 一覧の用途はall/mine/pendingApprovals。本人とチームはサーバーの認証情報から解決する。Webの全件集計はサーバー応答を使用する。
 
 - `tests/integration/requestPagination.integration.ts`: 専用の使い捨てPostgreSQLだけでページ境界と同時刻の安定順を検証する明示起動用試験。
