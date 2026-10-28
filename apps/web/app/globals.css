@@ -783,3 +783,22 @@ td small {
   width: 100%;
   max-width: var(--sidebar-width);
 }
+
+.request-delete-dialog {
+  width: min(var(--form-width), calc(100% - var(--space-8)));
+  max-height: calc(100% - var(--space-8));
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  padding: var(--space-6);
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.request-delete-dialog h2, .request-delete-dialog p {
+  margin: 0;
+}
+
+.request-delete-dialog strong {
+  overflow-wrap: anywhere;
+}

@@ -27,6 +27,8 @@ import {
 import { ApiError, clearCsrfToken } from "../lib/apiTransport";
 import { createRequest, getRequest, transitionRequest, updateRequest } from "../lib/requestApi";
 
+import { RequestDeleteAction } from "./RequestDeleteAction";
+import { canDeleteRequest } from "../lib/canDeleteRequest";
 import { requestStatusOptions } from "../lib/requestStatusFilter";
 import type { RequestStatusFilter } from "../lib/requestStatusFilter";
 import { messages } from "../lib/messages";
@@ -65,6 +67,8 @@ export function MiniFlowApp() {
   const sessionEpoch = useRef(0);
   // 詳細取得の世代。所属・認証の変更と新しい詳細取得で以前の応答を破棄する。
   const detailEpoch = useRef(0);
+  // 確定ボタンの連打を、再描画を待たずに抑止する。完了時だけ解除する。
+  const deleteInFlight = useRef(false);
   const [currentUser, setCurrentUser] = useState<AuthUserDto | null>(null);
   const [locale, setLocale] = useState<Locale>("ja");
   const [email, setEmail] = useState("demo@example.com");
@@ -104,6 +108,8 @@ export function MiniFlowApp() {
   }, []);
 
   const collection = useRequestCollection(apiBaseUrl, currentUser, view, handleApiError);
+  const latestRequestScreen = useRef({ view, reload: collection.reload });
+  latestRequestScreen.current = { view, reload: collection.reload };
 
   // サーバーが認証を拒否した場合も、再読込なしで再ログインできる状態へ戻す。
   function clearSession() {
@@ -259,6 +265,35 @@ export function MiniFlowApp() {
       if (epoch === detailEpoch.current) handleApiError(caughtError);
     } finally {
       if (epoch === detailEpoch.current) setLoading(false);
+    }
+  }
+
+  async function handleDeleteRequest() {
+    if (!selectedRequest || !canDeleteRequest(selectedRequest, currentUser) || loading || deleteInFlight.current) return;
+    deleteInFlight.current = true;
+    const epoch = detailEpoch.current;
+    const session = sessionEpoch.current;
+    const isCurrent = () => epoch === detailEpoch.current && session === sessionEpoch.current;
+    setLoading(true);
+    setError(null);
+    setMessage(null);
+    try {
+      await transitionRequest(apiBaseUrl, selectedRequest.id, "delete");
+      if (!isCurrent()) return;
+      // 同時に進んでいた古い詳細GETも無効にし、削除後の詳細を復帰させない。
+      detailEpoch.current++;
+      setSelectedRequest(null);
+      setApprovals([]);
+      setDecisionReason("");
+      setMessage(labels.deleteSuccess);
+      setLoading(false);
+      if (latestRequestScreen.current.view === "detail") setView(detailReturnView);
+      else await latestRequestScreen.current.reload();
+    } catch (caughtError) {
+      if (isCurrent()) handleApiError(caughtError);
+    } finally {
+      deleteInFlight.current = false;
+      if (isCurrent()) setLoading(false);
     }
   }
 
@@ -612,6 +647,7 @@ export function MiniFlowApp() {
             loading={loading}
             request={selectedRequest}
             onBack={() => setView(detailReturnView)}
+            onDelete={handleDeleteRequest}
             onDecision={handleDecision}
             onDecisionReasonChange={setDecisionReason}
             onReviseRequest={handleReviseRequest}
@@ -1106,7 +1142,8 @@ function UserManagementView({
   );
 }
 
-function RequestDetailView({
+/** 選択申請の内容と既存権限に対応する操作を表示する。通信は親へ委ねる。 */
+export function RequestDetailView({
   labels,
   approvals,
   currentUser,
@@ -1115,6 +1152,7 @@ function RequestDetailView({
   request,
   onBack,
   onDecision,
+  onDelete,
   onDecisionReasonChange,
   onReviseRequest,
   onSubmitRequest,
@@ -1127,6 +1165,7 @@ function RequestDetailView({
   loading: boolean;
   request: RequestDto | null;
   onBack: () => void;
+  onDelete: () => void;
   onDecision: (action: "approve" | "reject") => void;
   onDecisionReasonChange: (reason: string) => void;
   onReviseRequest: () => void;
@@ -1272,6 +1311,10 @@ function RequestDetailView({
           </aside>
         )}
       </section>
+
+      {canDeleteRequest(request, currentUser) ? <section>
+        <RequestDeleteAction title={request.title} labels={labels} disabled={loading} onConfirm={onDelete} />
+      </section> : null}
 
       <section>
         <div className="section-heading">
