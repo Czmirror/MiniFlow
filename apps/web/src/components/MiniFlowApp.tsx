@@ -28,6 +28,7 @@ import { ApiError, clearCsrfToken } from "../lib/apiTransport";
 import { createRequest, getRequest, transitionRequest, updateRequest } from "../lib/requestApi";
 
 import { RequestDeleteAction } from "./RequestDeleteAction";
+import { RequestLeaveDialog } from "./RequestLeaveDialog";
 import { canDeleteRequest } from "../lib/canDeleteRequest";
 import { requestStatusOptions } from "../lib/requestStatusFilter";
 import type { RequestStatusFilter } from "../lib/requestStatusFilter";
@@ -36,11 +37,13 @@ import type { Labels, Locale } from "../lib/messages";
 import { currentRequestDetail } from "../lib/currentRequestDetail";
 import { managedUserChange } from "../lib/managedUserChange";
 import { useRequestCollection } from "../hooks/useRequestCollection";
+import { useRequestEditor } from "../hooks/useRequestEditor";
+import type { RequestEditForm, RequestLeaveIntent } from "../lib/requestEditor";
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
 const defaultTeamId = "team-1";
 
-type View = "dashboard" | "requests" | "mine" | "pending" | "create" | "detail" | "account" | "users";
+type View = Exclude<RequestLeaveIntent, "logout"> | "detail";
 
 const initialCreateForm: CreateRequestInput = {
   teamId: defaultTeamId,
@@ -67,8 +70,9 @@ export function MiniFlowApp() {
   const sessionEpoch = useRef(0);
   // 詳細取得の世代。所属・認証の変更と新しい詳細取得で以前の応答を破棄する。
   const detailEpoch = useRef(0);
-  // 確定ボタンの連打を、再描画を待たずに抑止する。完了時だけ解除する。
-  const deleteInFlight = useRef(false);
+  // 申請の更新を再描画前から排他にし、送信途中の画面移動も防ぐ。
+  // 境界変更で無効化し、旧操作のfinallyは所有tokenが一致するときだけ解除する。
+  const requestInFlight = useRef<{ session: number } | null>(null);
   const [currentUser, setCurrentUser] = useState<AuthUserDto | null>(null);
   const [locale, setLocale] = useState<Locale>("ja");
   const [email, setEmail] = useState("demo@example.com");
@@ -89,7 +93,7 @@ export function MiniFlowApp() {
   const [loading, setLoading] = useState(false);
 
   const labels = messages[locale];
-  const navItems: Array<{ view: View; label: string }> = [
+  const navItems: Array<{ view: Exclude<View, "detail">; label: string }> = [
     { view: "dashboard", label: labels.dashboard },
     { view: "requests", label: labels.requestList },
     { view: "mine", label: labels.myRequests },
@@ -108,6 +112,15 @@ export function MiniFlowApp() {
   }, []);
 
   const collection = useRequestCollection(apiBaseUrl, currentUser, view, handleApiError);
+  const editableRequest = view === "detail" && selectedRequest?.status === "Draft" && currentUser
+    && (selectedRequest.createdBy === currentUser.id || currentUser.role === "Admin") ? selectedRequest : null;
+  const editorScope = JSON.stringify([sessionEpoch.current, currentUser?.id, currentUser?.teamId, currentUser?.role]);
+  const editor = useRequestEditor(editorScope, editableRequest, view === "detail" && loading, async intent => {
+    if (view === "detail" && (loading || requestInFlight.current?.session === sessionEpoch.current)) return false;
+    if (intent === "logout") return handleLogout();
+    setView(intent);
+    return true;
+  });
   const latestRequestScreen = useRef({ view, reload: collection.reload });
   latestRequestScreen.current = { view, reload: collection.reload };
 
@@ -115,10 +128,12 @@ export function MiniFlowApp() {
   function clearSession() {
     sessionEpoch.current++;
     detailEpoch.current++;
+    requestInFlight.current = null;
     clearCsrfToken();
     setCurrentUser(null);
     setPassword("");
     collection.reset();
+    editor.reset();
     setUsers([]);
     setSelectedRequest(null);
     setApprovals([]);
@@ -183,17 +198,21 @@ export function MiniFlowApp() {
   }
 
   async function handleLogout() {
+    const epoch = sessionEpoch.current;
     setLoading(true);
     setError(null);
     setMessage(null);
 
     try {
       await logout(apiBaseUrl);
+      if (epoch !== sessionEpoch.current) return false;
       clearSession();
+      return true;
     } catch (caughtError) {
-      handleApiError(caughtError);
+      if (epoch === sessionEpoch.current) handleApiError(caughtError);
+      return false;
     } finally {
-      setLoading(false);
+      if (epoch === sessionEpoch.current) setLoading(false);
     }
   }
 
@@ -245,11 +264,12 @@ export function MiniFlowApp() {
   async function openDetail(id: string) {
     const epoch = ++detailEpoch.current;
     const detail = await currentRequestDetail(() => getRequest(apiBaseUrl, id), () => epoch === detailEpoch.current);
-    if (!detail) return;
+    if (!detail) return false;
     setSelectedRequest(detail.request);
     setApprovals(detail.approvals);
     setDecisionReason("");
     setView("detail");
+    return true;
   }
 
   async function handleOpenDetail(id: string) {
@@ -269,8 +289,9 @@ export function MiniFlowApp() {
   }
 
   async function handleDeleteRequest() {
-    if (!selectedRequest || !canDeleteRequest(selectedRequest, currentUser) || loading || deleteInFlight.current) return;
-    deleteInFlight.current = true;
+    if (!selectedRequest || !canDeleteRequest(selectedRequest, currentUser) || loading || requestInFlight.current?.session === sessionEpoch.current) return;
+    const operation = { session: sessionEpoch.current };
+    requestInFlight.current = operation;
     const epoch = detailEpoch.current;
     const session = sessionEpoch.current;
     const isCurrent = () => epoch === detailEpoch.current && session === sessionEpoch.current;
@@ -285,6 +306,7 @@ export function MiniFlowApp() {
       setSelectedRequest(null);
       setApprovals([]);
       setDecisionReason("");
+      editor.reset();
       setMessage(labels.deleteSuccess);
       setLoading(false);
       if (latestRequestScreen.current.view === "detail") setView(detailReturnView);
@@ -292,101 +314,59 @@ export function MiniFlowApp() {
     } catch (caughtError) {
       if (isCurrent()) handleApiError(caughtError);
     } finally {
-      deleteInFlight.current = false;
+      if (requestInFlight.current === operation) requestInFlight.current = null;
+      if (isCurrent()) setLoading(false);
+    }
+  }
+
+  // API更新から詳細の再取得まで同じ操作として扱う。世代をまたぐ完了は入力や新画面へ適用しない。
+  async function changeSelectedRequest(change: (request: RequestDto, isCurrent: () => boolean) => Promise<RequestDto | null>, successMessage: string) {
+    if (!selectedRequest || loading || requestInFlight.current?.session === sessionEpoch.current) return;
+    const operation = { session: sessionEpoch.current };
+    requestInFlight.current = operation;
+    let epoch = detailEpoch.current;
+    const session = sessionEpoch.current;
+    const isCurrent = () => epoch === detailEpoch.current && session === sessionEpoch.current;
+    setLoading(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const changed = await change(selectedRequest, isCurrent);
+      if (!changed || !isCurrent()) return;
+      await refreshRequests();
+      if (!isCurrent()) return;
+      // openDetailが開始する次の取得世代を、この操作の完了判定でも追跡する。
+      epoch = detailEpoch.current + 1;
+      if (await openDetail(changed.id) && isCurrent()) {
+        editor.reset();
+        setMessage(successMessage);
+      }
+    } catch (caughtError) {
+      if (isCurrent()) handleApiError(caughtError);
+    } finally {
+      if (requestInFlight.current === operation) requestInFlight.current = null;
       if (isCurrent()) setLoading(false);
     }
   }
 
   async function handleDecision(action: "approve" | "reject") {
-    if (!selectedRequest) {
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-    setMessage(null);
-
-    try {
-      const changed = await transitionRequest(
-        apiBaseUrl,
-        selectedRequest.id,
-        action,
-        decisionReason.trim() ? { reason: decisionReason.trim() } : undefined
-      );
-      await refreshRequests();
-      await openDetail(changed.id);
-      setMessage(action === "approve" ? labels.approveSuccess : labels.rejectSuccess);
-    } catch (caughtError) {
-      handleApiError(caughtError);
-    } finally {
-      setLoading(false);
-    }
+    await changeSelectedRequest(request => transitionRequest(apiBaseUrl, request.id, action,
+      decisionReason.trim() ? { reason: decisionReason.trim() } : undefined), action === "approve" ? labels.approveSuccess : labels.rejectSuccess);
   }
 
-  async function handleSubmitRequest(input?: { title: string; body: string }) {
-    if (!selectedRequest) {
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-    setMessage(null);
-
-    try {
-      const requestToSubmit = input
-        ? await updateRequest(apiBaseUrl, selectedRequest.id, input)
-        : selectedRequest;
-      const changed = await transitionRequest(apiBaseUrl, requestToSubmit.id, "submit");
-      await refreshRequests();
-      await openDetail(changed.id);
-      setMessage(labels.submitSuccess);
-    } catch (caughtError) {
-      handleApiError(caughtError);
-    } finally {
-      setLoading(false);
-    }
+  async function handleSubmitRequest(input?: RequestEditForm) {
+    await changeSelectedRequest(async (request, isCurrent) => {
+      const toSubmit = input ? await updateRequest(apiBaseUrl, request.id, input) : request;
+      return isCurrent() ? transitionRequest(apiBaseUrl, toSubmit.id, "submit") : null;
+    }, labels.submitSuccess);
   }
 
   async function handleReviseRequest() {
-    if (!selectedRequest) {
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-    setMessage(null);
-
-    try {
-      const changed = await transitionRequest(apiBaseUrl, selectedRequest.id, "revise");
-      await refreshRequests();
-      await openDetail(changed.id);
-      setMessage(labels.reviseSuccess);
-    } catch (caughtError) {
-      handleApiError(caughtError);
-    } finally {
-      setLoading(false);
-    }
+    await changeSelectedRequest(request => transitionRequest(apiBaseUrl, request.id, "revise"), labels.reviseSuccess);
   }
 
-  async function handleUpdateSelectedRequest(input: { title: string; body: string }) {
-    if (!selectedRequest) {
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-    setMessage(null);
-
-    try {
-      const changed = await updateRequest(apiBaseUrl, selectedRequest.id, input);
-      await refreshRequests();
-      await openDetail(changed.id);
-      setMessage(labels.updateSuccess);
-    } catch (caughtError) {
-      handleApiError(caughtError);
-    } finally {
-      setLoading(false);
-    }
+  async function handleUpdateSelectedRequest(input: RequestEditForm) {
+    await changeSelectedRequest(request => updateRequest(apiBaseUrl, request.id, input), labels.updateSuccess);
   }
 
   async function handleAccountSubmit(event: FormEvent<HTMLFormElement>) {
@@ -476,7 +456,9 @@ export function MiniFlowApp() {
         if (!updated.isActive) { clearSession(); return true; }
         if (change === "context") {
           detailEpoch.current++;
+          requestInFlight.current = null;
           collection.reset();
+          editor.reset();
           setSelectedRequest(null);
           setApprovals([]);
           setDecisionReason("");
@@ -562,7 +544,8 @@ export function MiniFlowApp() {
               key={item.view}
               aria-current={view === item.view ? "page" : undefined}
               type="button"
-              onClick={() => setView(item.view)}
+              disabled={view === "detail" && loading}
+              onClick={() => { if (item.view !== view) void editor.send({ type: "leave", intent: item.view }); }}
             >
               {item.label}
             </button>
@@ -575,7 +558,7 @@ export function MiniFlowApp() {
             <span>{roleLabel(currentUser.role, labels)}</span>
             <small>{currentUser.id}</small>
           </div>
-          <button className="button quiet" type="button" onClick={() => void handleLogout()} disabled={loading}>
+          <button className="button quiet" type="button" onClick={() => void editor.send({ type: "leave", intent: "logout" })} disabled={loading}>
             {labels.logout}
           </button>
         </div>
@@ -646,7 +629,9 @@ export function MiniFlowApp() {
             decisionReason={decisionReason}
             loading={loading}
             request={selectedRequest}
-            onBack={() => setView(detailReturnView)}
+            editForm={editor.form}
+            onEditChange={form => void editor.send({ type: "edit", form })}
+            onBack={() => void editor.send({ type: "leave", intent: detailReturnView })}
             onDelete={handleDeleteRequest}
             onDecision={handleDecision}
             onDecisionReasonChange={setDecisionReason}
@@ -656,6 +641,8 @@ export function MiniFlowApp() {
           />
         ) : null}
       </section>
+      {editor.pending ? <RequestLeaveDialog labels={labels} logout={editor.pending === "logout"} disabled={loading}
+        onCancel={() => void editor.send({ type: "cancel" })} onConfirm={() => void editor.send({ type: "confirm" })} /> : null}
     </main>
   );
 }
@@ -1156,7 +1143,9 @@ export function RequestDetailView({
   onDecisionReasonChange,
   onReviseRequest,
   onSubmitRequest,
-  onUpdateRequest
+  onUpdateRequest,
+  editForm,
+  onEditChange
 }: {
   labels: Labels;
   approvals: ApprovalDto[];
@@ -1171,18 +1160,9 @@ export function RequestDetailView({
   onReviseRequest: () => void;
   onSubmitRequest: (input?: { title: string; body: string }) => void;
   onUpdateRequest: (input: { title: string; body: string }) => void;
+  editForm: RequestEditForm;
+  onEditChange: (form: RequestEditForm) => void;
 }) {
-  const [editForm, setEditForm] = useState({ title: "", body: "" });
-
-  useEffect(() => {
-    if (!request) {
-      setEditForm({ title: "", body: "" });
-      return;
-    }
-
-    setEditForm({ title: request.title, body: request.body });
-  }, [request?.id, request?.title, request?.body]);
-
   if (!request) {
     return (
       <div className="screen-grid">
@@ -1218,16 +1198,18 @@ export function RequestDetailView({
               <label className="field">
                 <span>{labels.title}</span>
                 <input
+                  disabled={loading}
                   value={editForm.title}
-                  onChange={(event) => setEditForm({ ...editForm, title: event.target.value })}
+                  onChange={(event) => onEditChange({ ...editForm, title: event.target.value })}
                 />
               </label>
               <label className="field">
                 <span>{labels.body}</span>
                 <textarea
+                  disabled={loading}
                   rows={7}
                   value={editForm.body}
-                  onChange={(event) => setEditForm({ ...editForm, body: event.target.value })}
+                  onChange={(event) => onEditChange({ ...editForm, body: event.target.value })}
                 />
               </label>
               <button
@@ -1319,7 +1301,7 @@ export function RequestDetailView({
       <section>
         <div className="section-heading">
           <h3>{labels.approvalHistory}</h3>
-          <button className="button quiet" type="button" onClick={onBack}>
+          <button className="button quiet" type="button" disabled={loading} onClick={onBack}>
             {labels.back}
           </button>
         </div>
