@@ -784,7 +784,7 @@ td small {
   max-width: var(--sidebar-width);
 }
 
-.request-delete-dialog {
+.request-delete-dialog, .request-leave-dialog {
   width: min(var(--form-width), calc(100% - var(--space-8)));
   max-height: calc(100% - var(--space-8));
   overflow: auto;
@@ -795,7 +795,8 @@ td small {
   color: var(--ink);
 }
 
-.request-delete-dialog h2, .request-delete-dialog p {
+.request-delete-dialog h2, .request-delete-dialog p,
+.request-leave-dialog h2, .request-leave-dialog p {
   margin: 0;
 }
 

@@ -35,7 +35,7 @@ describe("申請削除の表示条件", () => {
   });
   it("本番詳細は削除できる場合だけ操作を接続する", async () => {
     const { RequestDetailView } = await import(detailPath);
-    const props = { labels: messages.ja, approvals: [], currentUser: user, decisionReason: "", loading: false, onBack: () => {}, onDelete: () => {}, onDecision: () => {}, onDecisionReasonChange: () => {}, onReviseRequest: () => {}, onSubmitRequest: () => {}, onUpdateRequest: () => {} };
+    const props = { labels: messages.ja, approvals: [], currentUser: user, decisionReason: "", loading: false, editForm: { title: request.title, body: request.body }, onEditChange: () => {}, onBack: () => {}, onDelete: () => {}, onDecision: () => {}, onDecisionReasonChange: () => {}, onReviseRequest: () => {}, onSubmitRequest: () => {}, onUpdateRequest: () => {} };
     const draft = renderToStaticMarkup(createElement(RequestDetailView, { ...props, request }));
     expect(draft).toContain("この申請を削除");
     const pending = renderToStaticMarkup(createElement(RequestDetailView, { ...props, request: { ...request, status: "Pending" } }));

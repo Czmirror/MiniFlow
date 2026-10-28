@@ -104,6 +104,9 @@ Do NOT implement:
 - `apps/api/src/infrastructure/`: Prisma・DB・password/JWT等の外部I/O。
 - `apps/web/app/` と `apps/web/src/`: Next.jsの入口、画面、APIクライアント。
 - `apps/web/src/components/RequestDeleteAction.tsx`: 申請名・注意書き・キャンセルを持つ削除確認。通信は親画面が担当する。
+- `apps/web/src/lib/requestEditor.ts`: 未保存の下書きと保留中の移動の純粋な状態遷移。認証境界・申請・保存基準が変わると旧状態を使わない。
+- `apps/web/src/hooks/useRequestEditor.ts`: 編集状態とブラウザ離脱警告の寿命。実際の移動・通信は親へ委ねる。
+- `apps/web/src/components/RequestLeaveDialog.tsx`: 未保存の下書きから移動する前の確認とfocus復帰。
 - `apps/web/src/lib/canDeleteRequest.ts`: 同じチームの本人または管理者に、下書き・差し戻しの削除操作を表示する条件。サーバーの認可を代替しない。
 - `packages/shared/src/`: 通信用の共有型。`src/shared/api-types.ts` はOpenAPI生成型として保持。
 - `tests/domain/` と `tests/application/`: 現行APIの状態遷移・usecaseを検証。旧rootのdomain/applicationは削除済み。
