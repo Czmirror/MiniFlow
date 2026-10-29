@@ -15,8 +15,8 @@ const pending = [{ id: "fixture-request", teamId: "team-1", createdBy: "fixture-
 describe("画面ごとの表示言語", () => {
   it("交互に作った日英の画面要素を後から描画しても、見出し・表・状態・操作の言語を維持する", async () => {
     const { Dashboard } = await import(componentPath);
-    const japanese = createElement(Dashboard, { labels: messages.ja, stats, pendingApprovals: pending, onOpenDetail: () => {} });
-    const english = createElement(Dashboard, { labels: messages.en, stats, pendingApprovals: pending, onOpenDetail: () => {} });
+    const japanese = createElement(Dashboard, { labels: messages.ja, stats, pendingApprovals: pending, onOpenDetail: () => {}, onOpenList: () => {} });
+    const english = createElement(Dashboard, { labels: messages.en, stats, pendingApprovals: pending, onOpenDetail: () => {}, onOpenList: () => {} });
     const en = renderToStaticMarkup(english);
     const ja = renderToStaticMarkup(japanese);
     expect(en).toContain("Dashboard");

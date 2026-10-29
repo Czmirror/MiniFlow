@@ -7,7 +7,7 @@ export type RequestListView = "requests" | "mine" | "pending";
 type Position = { page: number; status: RequestStatusFilter };
 /** identityは本人・所属・権限の既存識別子。別identityの位置を読み出さない。 */
 export type RequestListSelection = { identity: string } & Record<RequestListView, Position>;
-type SelectionChange = { type: "page"; page: number; lastPage: number } | { type: "status"; value: string };
+type SelectionChange = { type: "page"; page: number; lastPage: number } | { type: "status"; value: string } | { type: "open"; value: string };
 
 /** 一覧以外の画面名を選択状態のキーにしない。 */
 export function isRequestListView(view: string): view is RequestListView {
@@ -24,11 +24,17 @@ export function readRequestListSelection(state: RequestListSelection, identity: 
   return state.identity === identity && isRequestListView(view) ? state[view] : { page: 1, status: "" };
 }
 
-/** 不正入力は無視する。条件が変わった一覧だけ先頭へ戻し、ページは有効な整数に限る。 */
+/** 不正入力は無視する。openは対象一覧だけ指定条件の先頭へ戻し、通常の条件変更は同値なら位置を保つ。 */
 export function changeRequestListSelection(state: RequestListSelection, identity: string, view: string, change: SelectionChange): RequestListSelection {
   const current = state.identity === identity ? state : createRequestListSelection(identity);
   if (!isRequestListView(view)) return current;
   const position = current[view];
+  if (change.type === "open") {
+    const status = parseRequestStatusFilter(change.value);
+    if (status === null || (view === "pending" && status !== "")) return current;
+    // 通常の条件変更と違い、同じ条件でも先頭から開き直す。
+    return { ...current, [view]: { page: 1, status } };
+  }
   if (change.type === "status") {
     const status = parseRequestStatusFilter(change.value);
     if (view === "pending" || status === null || status === position.status) return current;

@@ -168,6 +168,11 @@ Do NOT implement:
 - `infrastructure/auth/password.ts`: 既存のbcrypt実装。HTTPとCLIの組立がusecaseへ明示的に渡す。
 - 試験と記録は`docs/tests/unit/api-dependency-boundaries.md`と`docs/work/api-dependency-boundaries/`。
 
+## ダッシュボードの一覧導線
+
+- `apps/web/src/lib/dashboardShortcut.ts`: 件数カードと抜粋の操作を、固定の一覧と状態へ対応させる。通信・集計・認可は持たない。
+- 仕様・試験と計画は`docs/specs/dashboard-shortcuts.md`、`docs/tests/`、`docs/work/dashboard-shortcuts/`。
+
 ## 一覧の状態フィルター
 
 - `lib/requestStatusFilter.ts`: 固定選択肢と未知値の拒否。表示名は既存messagesを使う。

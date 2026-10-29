@@ -30,6 +30,8 @@ import { createRequest, getRequest, transitionRequest, updateRequest } from "../
 import { RequestDeleteAction } from "./RequestDeleteAction";
 import { RequestLeaveDialog } from "./RequestLeaveDialog";
 import { canDeleteRequest } from "../lib/canDeleteRequest";
+import { dashboardMetrics, resolveDashboardShortcut } from "../lib/dashboardShortcut";
+import type { DashboardShortcut } from "../lib/dashboardShortcut";
 import { requestStatusOptions } from "../lib/requestStatusFilter";
 import type { RequestStatusFilter } from "../lib/requestStatusFilter";
 import { messages } from "../lib/messages";
@@ -575,7 +577,13 @@ export function MiniFlowApp() {
         ) : null}
 
         {view === "dashboard" && collection.data ? (
-          <Dashboard labels={labels} stats={collection.data.summary} pendingApprovals={collection.data.listing.items} onOpenDetail={handleOpenDetail} />
+          <Dashboard labels={labels} stats={collection.data.summary} pendingApprovals={collection.data.listing.items} onOpenDetail={handleOpenDetail}
+            onOpenList={shortcut => {
+              const destination = resolveDashboardShortcut(shortcut);
+              if (!destination) return;
+              collection.openList(destination.view, destination.status);
+              setView(destination.view);
+            }} />
         ) : null}
 
         {["requests", "mine", "pending"].includes(view) ? (
@@ -647,17 +655,19 @@ export function MiniFlowApp() {
   );
 }
 
-/** 渡された文言と集計だけでダッシュボードを表示する。表示言語の共有状態は参照しない。 */
+/** 渡された文言と集計でダッシュボードを表示する。一覧への固定操作は親へ返し、取得状態は持たない。 */
 export function Dashboard({
   labels,
   stats,
   pendingApprovals,
-  onOpenDetail
+  onOpenDetail,
+  onOpenList
 }: {
   labels: Labels;
   stats: RequestSummary;
   pendingApprovals: RequestDto[];
   onOpenDetail: (id: string) => void;
+  onOpenList: (shortcut: DashboardShortcut) => void;
 }) {
   return (
     <div className="screen-grid">
@@ -669,17 +679,14 @@ export function Dashboard({
       </section>
 
       <div className="metric-grid">
-        <Metric label={labels.total} value={stats.total} />
-        <Metric label={labels.myRequests} value={stats.mine} />
-        <Metric label={labels.pending} value={stats.pending} />
-        <Metric label={labels.approved} value={stats.approved} />
-        <Metric label={labels.rejected} value={stats.rejected} />
-        <Metric label={labels.draft} value={stats.drafts} />
+        {dashboardMetrics.map(key => <Metric key={key} label={key === "mine" ? labels.myRequests : key === "drafts" ? labels.draft : labels[key]} value={stats[key]}
+          hint={labels.metricActions[key]} onOpen={() => onOpenList(key)} />)}
       </div>
 
       <section>
         <div className="section-heading">
-          <h3>{labels.pendingApprovals}</h3>
+          <div><h3>{labels.pendingApprovals}</h3><p className="muted">{labels.pendingApprovalsHint}</p></div>
+          <button className="button secondary" type="button" onClick={() => onOpenList("pendingApprovals")}>{labels.viewAll}</button>
         </div>
         <RequestTable labels={labels} requests={pendingApprovals.slice(0, 5)} onOpenDetail={onOpenDetail} emptyText={labels.noPendingApprovals} />
       </section>
@@ -687,12 +694,13 @@ export function Dashboard({
   );
 }
 
-function Metric({ label, value }: { label: string; value: number }) {
+function Metric({ label, value, hint, onOpen }: { label: string; value: number; hint: string; onOpen: () => void }) {
   return (
-    <div className="metric">
+    <button className="metric" type="button" onClick={onOpen}>
       <span>{label}</span>
       <strong>{value}</strong>
-    </div>
+      <span className="metric-action">{hint} <span aria-hidden="true">→</span></span>
+    </button>
   );
 }
 
