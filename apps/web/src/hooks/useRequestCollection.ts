@@ -66,5 +66,9 @@ export function useRequestCollection(baseUrl: string, user: AuthUserDto | null, 
   const changeStatus = (value: string) => {
     setSelection(previous => changeRequestListSelection(previous, identity, view, { type: "status", value }));
   };
-  return { ...visible, reload, reset, changePage, statusFilter, changeStatus };
+  // ダッシュボードから開く一覧だけを更新する。viewの切替は呼び出し元が同じ操作内で行う。
+  const openList = (target: string, status: string) => {
+    setSelection(previous => changeRequestListSelection(previous, identity, target, { type: "open", value: status }));
+  };
+  return { ...visible, reload, reset, changePage, statusFilter, changeStatus, openList };
 }
