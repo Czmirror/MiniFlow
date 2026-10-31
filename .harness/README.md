@@ -5,8 +5,8 @@ AI開発の入口はルートのAGENTS.md。業務ルールと優先事項はste
 ## 導入元
 
 - Repository: https://github.com/Czmirror/ai-dev-context
-- Commit: 0656986cebd23d5e19c8cac30b822bd755babf7f
-- 入手日: 2026-10-25
+- Commit: eea51edcd728d32a9ef1e943ec1b64fd9477cac3
+- 入手日: 2026-10-31（更新。初回導入は2026-10-25）
 - ライセンス: MIT。ライセンス本文はupstream/LICENSEに保持。
 - 方式: Git submodule。upstreamへの改変なし。アプリの依存・API・DB変更なし。
 
@@ -35,3 +35,7 @@ clone時はgit clone --recurse-submodulesを使用する。Node.js 22以上と�
 ## 検証基盤の整備後
 
 Node.js 22.12以上、pnpm 10.6.3を使用する。初期導入時の記録は上に保持し、第1段階の変更と最新の検証結果は [実施結果](../docs/work/harness-source-review/stage-1-result.md) に記録する。
+
+## 2026-10-31の更新
+
+ユーザーのハーネス再取り込み依頼に基づき、共通repositoryの最新マージ済みmainへ参照を更新した。タグv0.3.0以後に入った画面設計図の規約も含む。共通ファイルへの直接改変、hookやAI設定の自動導入は行っていない。更新内容・検証結果は`docs/work/harness-refresh-detail-design/plan.md`に記録する。
