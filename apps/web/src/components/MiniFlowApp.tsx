@@ -27,7 +27,10 @@ import {
 import { ApiError, clearCsrfToken } from "../lib/apiTransport";
 import { createRequest, getRequest, transitionRequest, updateRequest } from "../lib/requestApi";
 
-import { RequestDeleteAction } from "./RequestDeleteAction";
+import { RequestDetailView } from "./RequestDetailView";
+export { RequestDetailView } from "./RequestDetailView";
+import { StatusBadge } from "./StatusBadge";
+import { formatDate, shortId } from "../lib/displayFormat";
 import { RequestLeaveDialog } from "./RequestLeaveDialog";
 import { canDeleteRequest } from "../lib/canDeleteRequest";
 import { dashboardMetrics, resolveDashboardShortcut } from "../lib/dashboardShortcut";
@@ -82,6 +85,9 @@ export function MiniFlowApp() {
   const [teamId, setTeamId] = useState(defaultTeamId);
   const [users, setUsers] = useState<UserManagementDto[]>([]);
   const [selectedRequest, setSelectedRequest] = useState<RequestDto | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailFailed, setDetailFailed] = useState(false);
+  const [detailId, setDetailId] = useState<string | null>(null);
   const [approvals, setApprovals] = useState<ApprovalDto[]>([]);
   const [detailReturnView, setDetailReturnView] = useState<"requests" | "mine" | "pending">("requests");
   const [view, setView] = useState<View>("dashboard");
@@ -120,6 +126,9 @@ export function MiniFlowApp() {
   const editor = useRequestEditor(editorScope, editableRequest, view === "detail" && loading, async intent => {
     if (view === "detail" && (loading || requestInFlight.current?.session === sessionEpoch.current)) return false;
     if (intent === "logout") return handleLogout();
+    detailEpoch.current++;
+    setDetailLoading(false);
+    setDetailFailed(false);
     setView(intent);
     return true;
   });
@@ -138,6 +147,9 @@ export function MiniFlowApp() {
     editor.reset();
     setUsers([]);
     setSelectedRequest(null);
+    setDetailLoading(false);
+    setDetailFailed(false);
+    setDetailId(null);
     setApprovals([]);
     setView("dashboard");
     setTeamId(defaultTeamId);
@@ -267,6 +279,7 @@ export function MiniFlowApp() {
     const epoch = ++detailEpoch.current;
     const detail = await currentRequestDetail(() => getRequest(apiBaseUrl, id), () => epoch === detailEpoch.current);
     if (!detail) return false;
+    setDetailId(id);
     setSelectedRequest(detail.request);
     setApprovals(detail.approvals);
     setDecisionReason("");
@@ -275,8 +288,14 @@ export function MiniFlowApp() {
   }
 
   async function handleOpenDetail(id: string) {
-    setDetailReturnView(view === "mine" || view === "pending" ? view : "requests");
+    if (view !== "detail") setDetailReturnView(view === "mine" || view === "pending" ? view : "requests");
     const epoch = detailEpoch.current + 1;
+    setDetailId(id);
+    setSelectedRequest(null);
+    setApprovals([]);
+    setView("detail");
+    setDetailLoading(true);
+    setDetailFailed(false);
     setLoading(true);
     setError(null);
     setMessage(null);
@@ -284,9 +303,9 @@ export function MiniFlowApp() {
     try {
       await openDetail(id);
     } catch (caughtError) {
-      if (epoch === detailEpoch.current) handleApiError(caughtError);
+      if (epoch === detailEpoch.current) { setDetailFailed(true); handleApiError(caughtError); }
     } finally {
-      if (epoch === detailEpoch.current) setLoading(false);
+      if (epoch === detailEpoch.current) { setLoading(false); setDetailLoading(false); }
     }
   }
 
@@ -462,6 +481,9 @@ export function MiniFlowApp() {
           collection.reset();
           editor.reset();
           setSelectedRequest(null);
+          setDetailLoading(false);
+          setDetailFailed(false);
+          setDetailId(null);
           setApprovals([]);
           setDecisionReason("");
           setCreateForm({ ...initialCreateForm, teamId: updated.teamId });
@@ -637,6 +659,9 @@ export function MiniFlowApp() {
             decisionReason={decisionReason}
             loading={loading}
             request={selectedRequest}
+            detailLoading={detailLoading}
+            detailFailed={detailFailed}
+            onRetry={() => { if (detailId) void handleOpenDetail(detailId); }}
             editForm={editor.form}
             onEditChange={form => void editor.send({ type: "edit", form })}
             onBack={() => void editor.send({ type: "leave", intent: detailReturnView })}
@@ -1137,216 +1162,6 @@ function UserManagementView({
   );
 }
 
-/** 選択申請の内容と既存権限に対応する操作を表示する。通信は親へ委ねる。 */
-export function RequestDetailView({
-  labels,
-  approvals,
-  currentUser,
-  decisionReason,
-  loading,
-  request,
-  onBack,
-  onDecision,
-  onDelete,
-  onDecisionReasonChange,
-  onReviseRequest,
-  onSubmitRequest,
-  onUpdateRequest,
-  editForm,
-  onEditChange
-}: {
-  labels: Labels;
-  approvals: ApprovalDto[];
-  currentUser: AuthUserDto;
-  decisionReason: string;
-  loading: boolean;
-  request: RequestDto | null;
-  onBack: () => void;
-  onDelete: () => void;
-  onDecision: (action: "approve" | "reject") => void;
-  onDecisionReasonChange: (reason: string) => void;
-  onReviseRequest: () => void;
-  onSubmitRequest: (input?: { title: string; body: string }) => void;
-  onUpdateRequest: (input: { title: string; body: string }) => void;
-  editForm: RequestEditForm;
-  onEditChange: (form: RequestEditForm) => void;
-}) {
-  if (!request) {
-    return (
-      <div className="screen-grid">
-        <p className="empty-state">{labels.noSelectedRequest}</p>
-      </div>
-    );
-  }
-
-  const isOwnRequest = request.createdBy === currentUser.id;
-  const canSubmit = request.status === "Draft" && (isOwnRequest || currentUser.role === "Admin");
-  const canEdit = request.status === "Draft" && (isOwnRequest || currentUser.role === "Admin");
-  const canRevise = request.status === "Rejected" && (isOwnRequest || currentUser.role === "Admin");
-  const canDecide =
-    request.status === "Pending" &&
-    !isOwnRequest &&
-    (currentUser.role === "Approver" || currentUser.role === "Admin");
-
-  return (
-    <div className="screen-grid">
-      <section className="detail-header">
-        <div>
-          <p className="eyebrow">{labels.requestDetail}</p>
-          <h2>{request.title}</h2>
-          <span className="detail-id">{request.id}</span>
-        </div>
-        <StatusBadge labels={labels} status={request.status} />
-      </section>
-
-      <section className="detail-layout">
-        <div className="detail-main">
-          {canEdit ? (
-            <div className="stack">
-              <label className="field">
-                <span>{labels.title}</span>
-                <input
-                  disabled={loading}
-                  value={editForm.title}
-                  onChange={(event) => onEditChange({ ...editForm, title: event.target.value })}
-                />
-              </label>
-              <label className="field">
-                <span>{labels.body}</span>
-                <textarea
-                  disabled={loading}
-                  rows={7}
-                  value={editForm.body}
-                  onChange={(event) => onEditChange({ ...editForm, body: event.target.value })}
-                />
-              </label>
-              <button
-                className="button secondary"
-                type="button"
-                disabled={loading}
-                onClick={() => void onUpdateRequest(editForm)}
-              >
-                {labels.saveChanges}
-              </button>
-            </div>
-          ) : (
-            <div className="field-read">
-              <span>{labels.body}</span>
-              <p>{request.body}</p>
-            </div>
-          )}
-          <div className="meta-grid">
-            <Meta label={labels.team} value={request.teamId} />
-            <Meta label={labels.requester} value={request.createdBy} />
-            <Meta label={labels.created} value={formatDate(request.createdAt)} />
-            <Meta label={labels.updated} value={formatDate(request.updatedAt)} />
-          </div>
-        </div>
-
-        {canSubmit ? (
-          <aside className="decision-panel">
-            <h3>{labels.submitRequest}</h3>
-            <p>{labels.draftSubmitHelp}</p>
-            <button
-              className="button primary"
-              type="button"
-              disabled={loading}
-              onClick={() => void onSubmitRequest(canEdit ? editForm : undefined)}
-            >
-              {loading ? labels.submittingRequest : labels.submitRequest}
-            </button>
-          </aside>
-        ) : canRevise ? (
-          <aside className="decision-panel">
-            <h3>{labels.reviseRequest}</h3>
-            <p>{labels.rejectedReviseHelp}</p>
-            <button className="button primary" type="button" disabled={loading} onClick={() => void onReviseRequest()}>
-              {loading ? labels.revisingRequest : labels.reviseRequest}
-            </button>
-          </aside>
-        ) : canDecide ? (
-          <aside className="decision-panel">
-            <h3>{labels.approval}</h3>
-            <label className="field">
-              <span>{labels.reason}</span>
-              <textarea
-                rows={5}
-                value={decisionReason}
-                onChange={(event) => onDecisionReasonChange(event.target.value)}
-              />
-            </label>
-            <div className="decision-actions">
-              <button
-                className="button approve"
-                type="button"
-                disabled={loading}
-                onClick={() => void onDecision("approve")}
-              >
-                {labels.approve}
-              </button>
-              <button
-                className="button reject"
-                type="button"
-                disabled={loading}
-                onClick={() => void onDecision("reject")}
-              >
-                {labels.reject}
-              </button>
-            </div>
-          </aside>
-        ) : (
-          <aside className="decision-panel muted">
-            <h3>{labels.approval}</h3>
-            <p>{approvalUnavailableMessage(request.status, isOwnRequest, currentUser.role, labels)}</p>
-          </aside>
-        )}
-      </section>
-
-      {canDeleteRequest(request, currentUser) ? <section>
-        <RequestDeleteAction title={request.title} labels={labels} disabled={loading} onConfirm={onDelete} />
-      </section> : null}
-
-      <section>
-        <div className="section-heading">
-          <h3>{labels.approvalHistory}</h3>
-          <button className="button quiet" type="button" disabled={loading} onClick={onBack}>
-            {labels.back}
-          </button>
-        </div>
-        {approvals.length > 0 ? (
-          <div className="history-list">
-            {approvals.map((approval) => (
-              <div className="history-item" key={approval.id}>
-                <StatusBadge labels={labels} status={approval.actionType === "Approved" ? "Approved" : "Rejected"} />
-                <div>
-                  <strong>{shortId(approval.actedBy)}</strong>
-                  <p>{approval.reason || labels.noReason}</p>
-                </div>
-                <span>{formatDate(approval.createdAt)}</span>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="empty-state">{labels.noApprovalHistory}</p>
-        )}
-      </section>
-    </div>
-  );
-}
-
-function Meta({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="meta">
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
-  );
-}
-
-function StatusBadge({ status, labels }: { status: RequestDto["status"]; labels: Labels }) {
-  return <span className={`status ${status.toLowerCase()}`}>{labels.statusLabels[status]}</span>;
-}
-
 function StatusMessage({ error, message }: { error: string | null; message: string | null }) {
   if (!error && !message) {
     return null;
@@ -1364,34 +1179,6 @@ function roleLabel(role: UserRole, labels: Labels) {
   }
 
   return labels.applicant;
-}
-
-function approvalUnavailableMessage(status: RequestDto["status"], isOwnRequest: boolean, role: UserRole, labels: Labels) {
-  if (status === "Pending" && role === "Applicant") {
-    return labels.pendingApprovalHelp;
-  }
-  if (status !== "Pending") {
-    return labels.approvalAvailableAfterSubmit;
-  }
-
-  if (isOwnRequest) {
-    return labels.ownRequestApprovalHidden;
-  }
-
-  return labels.approvalUnavailable;
-}
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("ja-JP", {
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit"
-  }).format(new Date(value));
-}
-
-function shortId(value: string) {
-  return value.length > 12 ? `${value.slice(0, 8)}...` : value;
 }
 
 function toErrorMessage(error: unknown) {

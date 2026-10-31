@@ -1,3 +1,4 @@
+/** 既存レイアウトの接続を確認する。詳細操作の条件はRequestDetailPresentation.spec.tsで本番部品を描画して検証する。 */
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
@@ -25,12 +26,4 @@ describe("apps/web MiniFlow layout", () => {
     expect(source).not.toContain('onChange={(event) => setTeamId(event.target.value)}');
   });
 
-  it("offers requester actions for rejected and draft request details", () => {
-    const source = readFileSync("apps/web/src/components/MiniFlowApp.tsx", "utf8");
-
-    expect(source).toContain("const canRevise =");
-    expect(source).toContain('request.status === "Rejected"');
-    expect(source).toContain("onReviseRequest");
-    expect(source).toContain("onUpdateRequest");
-  });
 });

@@ -114,6 +114,15 @@ Do NOT implement:
 - `tests/apps/`: 現行APIの認証・承認保存契約、HTTP/画面の既存検査。
 - `docs/templates/request-state-transition.md`: 旧テストから現行テストへの対応案内。
 
+### 申請詳細の読みやすさ
+
+- `components/RequestDetailView.tsx`: 状態・理由・本文・操作・履歴の読み順を組み立てる。取得・編集状態は親が持つ。
+- `components/RequestDetailActions.tsx`: 既存の状態・本人・役割に応じた操作を表示し、実行を親へ返す。
+- `components/RequestApprovalHistory.tsx`: 実際の決定履歴を表示する。順序は表示モデルから受け取る。
+- `lib/requestDetailPresentation.ts`: 非破壊の時刻順と現在に対応する理由を求める。日時欠けを最新とは扱わない。
+- `components/StatusBadge.tsx`と`lib/displayFormat.ts`: 一覧・詳細で共有する状態と日時・識別子の表示。
+- 仕様・試験・作業記録は`docs/specs/request-detail-readability.md`、`docs/tests/`、`docs/work/harness-refresh-detail-design/`。
+
 ## 既知の問題
 
 全体レビューと段階的な改善計画は `docs/work/harness-source-review/`。第1段階は検証依存・テスト移行・書式修正のみ。公開registerと要件の衝突、入力・認証・競合・UIの課題は後続段階で扱い、この段階で仕様を変更しない。過去の課題一覧には対処済み項目も含まれ、実装状況はレビュー記録と照合する。
