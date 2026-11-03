@@ -26,6 +26,7 @@ import {
 } from "../lib/authApi";
 import { ApiError, clearCsrfToken } from "../lib/apiTransport";
 import { createRequest, getRequest, transitionRequest, updateRequest } from "../lib/requestApi";
+import { runRequestCreation } from "../lib/requestCreation";
 
 import { RequestDetailView } from "./RequestDetailView";
 export { RequestDetailView } from "./RequestDetailView";
@@ -123,8 +124,9 @@ export function MiniFlowApp() {
   const editableRequest = view === "detail" && selectedRequest?.status === "Draft" && currentUser
     && (selectedRequest.createdBy === currentUser.id || currentUser.role === "Admin") ? selectedRequest : null;
   const editorScope = JSON.stringify([sessionEpoch.current, currentUser?.id, currentUser?.teamId, currentUser?.role]);
-  const editor = useRequestEditor(editorScope, editableRequest, view === "detail" && loading, async intent => {
-    if (view === "detail" && (loading || requestInFlight.current?.session === sessionEpoch.current)) return false;
+  const requestScreenBusy = (view === "detail" || view === "create") && loading;
+  const editor = useRequestEditor(editorScope, editableRequest, requestScreenBusy, async intent => {
+    if (requestScreenBusy || requestInFlight.current?.session === sessionEpoch.current) return false;
     if (intent === "logout") return handleLogout();
     detailEpoch.current++;
     setDetailLoading(false);
@@ -249,29 +251,67 @@ export function MiniFlowApp() {
   }
 
   async function createFromForm(submitAfterCreate: boolean) {
+    if (!currentUser || loading || requestInFlight.current?.session === sessionEpoch.current) return;
+    const operation = { session: sessionEpoch.current };
+    requestInFlight.current = operation;
+    // 作成後の詳細取得も同じ操作が所有し、境界変更後は新しい画面へ完了を反映しない。
+    let epoch = detailEpoch.current;
+    const isCurrent = () => requestInFlight.current === operation
+      && operation.session === sessionEpoch.current && epoch === detailEpoch.current;
     setLoading(true);
     setError(null);
     setMessage(null);
 
     try {
-      const created = await createRequest(apiBaseUrl, {
-        teamId,
-        title: createForm.title.trim(),
-        body: createForm.body.trim()
+      const result = await runRequestCreation({
+        create: () => createRequest(apiBaseUrl, {
+          teamId,
+          title: createForm.title.trim(),
+          body: createForm.body.trim()
+        }),
+        submit: submitAfterCreate ? id => transitionRequest(apiBaseUrl, id, "submit") : undefined,
+        isCurrent,
+        onCreated: created => {
+          epoch = ++detailEpoch.current;
+          setCreateForm({ ...initialCreateForm, teamId: created.teamId });
+          setTeamId(created.teamId);
+          setDetailReturnView("requests");
+          setDetailId(created.id);
+          setSelectedRequest(null);
+          setApprovals([]);
+          setDecisionReason("");
+          editor.reset();
+          setView("detail");
+          setDetailLoading(true);
+          setDetailFailed(false);
+          setMessage(labels.createSuccess);
+        }
       });
-      const nextRequest = submitAfterCreate
-        ? await transitionRequest(apiBaseUrl, created.id, "submit")
-        : created;
-      await refreshRequests();
-      setDetailReturnView("requests");
-      await openDetail(nextRequest.id);
-      setTeamId(created.teamId);
-      setCreateForm({ ...initialCreateForm, teamId: created.teamId });
-      setMessage(submitAfterCreate ? labels.submitSuccess : labels.createSuccess);
-    } catch (caughtError) {
-      handleApiError(caughtError);
+      if (!result || !isCurrent()) return;
+      if (result.kind === "creation-unknown" || result.kind === "submission-unknown") {
+        if (result.error instanceof ApiError && result.error.status === 401) {
+          handleApiError(result.error);
+          return;
+        }
+        setError(result.kind === "creation-unknown" ? labels.createUnconfirmed : labels.createSubmitUnconfirmed);
+        if (result.kind === "creation-unknown") return;
+      } else {
+        setMessage(result.kind === "submitted" ? labels.submitSuccess : labels.createSuccess);
+      }
+      // 一覧の再取得に依存せず、対象IDから最新状態を確認する。失敗してもIDは残す。
+      epoch = detailEpoch.current + 1;
+      try {
+        await openDetail(result.request.id);
+      } catch (caughtError) {
+        if (isCurrent()) {
+          setDetailFailed(true);
+          if (caughtError instanceof ApiError && caughtError.status === 401) handleApiError(caughtError);
+          else setError(result.kind === "submission-unknown" ? labels.createSubmitUnconfirmed : labels.detailLoadFailed);
+        }
+      }
     } finally {
-      setLoading(false);
+      if (isCurrent()) { setLoading(false); setDetailLoading(false); }
+      if (requestInFlight.current === operation) requestInFlight.current = null;
     }
   }
 
@@ -568,7 +608,7 @@ export function MiniFlowApp() {
               key={item.view}
               aria-current={view === item.view ? "page" : undefined}
               type="button"
-              disabled={view === "detail" && loading}
+              disabled={requestScreenBusy}
               onClick={() => { if (item.view !== view) void editor.send({ type: "leave", intent: item.view }); }}
             >
               {item.label}
@@ -858,11 +898,11 @@ function CreateRequestView({
         </div>
         <label className="field">
           <span>{labels.title}</span>
-          <input value={form.title} onChange={(event) => onChange({ ...form, title: event.target.value })} />
+          <input disabled={loading} value={form.title} onChange={(event) => onChange({ ...form, title: event.target.value })} />
         </label>
         <label className="field">
           <span>{labels.body}</span>
-          <textarea rows={8} value={form.body} onChange={(event) => onChange({ ...form, body: event.target.value })} />
+          <textarea disabled={loading} rows={8} value={form.body} onChange={(event) => onChange({ ...form, body: event.target.value })} />
         </label>
         <div className="form-actions">
           <button className="button secondary" type="submit" disabled={loading}>

@@ -188,3 +188,9 @@ Do NOT implement:
 - `useRequestCollection`: 一覧別の条件を認証・所属境界内で保持し、条件変更でpageと取得世代を更新する。
 - `MiniFlowApp.RequestList`: 条件・取得結果・再試行を表示し、通信は取得hookへ委ねる。
 - 仕様は`docs/specs/request-status-filter.md`、試験と記録は`docs/tests/`と`docs/work/request-status-filter/`。
+
+## 申請作成後の復帰
+
+- `apps/web/src/lib/requestCreation.ts`: 作成の確認と提出結果を区別する。作成を同期通知してから任意の提出を1回だけ実行し、古い成功・失敗は破棄する。画面状態は持たない。
+- `MiniFlowApp.createFromForm`: 作成確認直後に入力を初期化して対象IDを詳細へ保持する。部分失敗は既存の詳細再試行と同じ申請の提出から復帰する。
+- 仕様は`docs/specs/request-create-recovery.md`、試験と記録は`docs/tests/`と`docs/work/request-create-recovery/`。作成応答自体の消失に対する永続的な重複防止は対象外。
