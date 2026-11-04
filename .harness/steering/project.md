@@ -98,6 +98,9 @@ Do NOT implement:
 
 ## ソースの地図
 
+- `.github/workflows/validation.yml`: 同一repositoryのPR・main push・手動実行を、既存Profileへ接続する。private Harnessの参照権限を専用secretに限定し、forkは対象外とする。
+- `.github/scripts/harness-ref.mjs`: 固定pathのgitlinkを検証し、CIの取得先revisionだけを出力する。秘密の入力とネットワーク操作は持たない。
+
 - `apps/api/src/presentation/http/`: HTTP・認証cookie・レスポンス変換。
 - `apps/api/src/application/`: 認証・申請usecaseと保存契約。
 - `apps/api/src/domain/`: 現行のRequest/Approval/User。申請テストの正本。

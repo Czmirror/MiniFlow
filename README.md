@@ -75,12 +75,16 @@ AI支援開発のルールはGit submoduleの共通Harnessを参照し、検証�
 | 自動試験 | domain・usecase・HTTP・Webのロジックや部品を検証。標準試験はDB接続なしで実行 |
 | ブラウザ | 架空ユーザーとメモリAPIで操作・日英表示・1280px/390pxの表示を確認。全ブラウザ・実機・全画面の自動E2Eを保証するものではない |
 | DB競合 | 専用の使い捨てPostgreSQLで、同時承認・編集・提出・削除との競合、履歴追加失敗時のロールバックなど7シナリオを確認 |
-| 未整備 | lint、GitHub Actions、ブラウザ試験の自動Runner登録、依存の既知脆弱性監査 |
+| 未整備 | lint、ブラウザ試験の自動Runner登録、依存の既知脆弱性監査 |
 
 DB競合の具体的な結果と未検証範囲は[競合制御の検証記録](docs/work/concurrency-csrf/result.md)を参照してください。その時点の全体検証には未通過項目もあり、DB試験の成功とは分けて記録しています。
 専用DBでの成功は、既存DBへの移行やバックアップ復元の保証ではありません。
 
 ### 自動検証の実行
+
+GitHub Actionsの定義は`.github/workflows/validation.yml`です。同一repositoryのPR、mainへのpush、手動実行で、以下と同じProject Profileを実行します。共通Harnessが非公開のため、専用の読み取り認証をActions secret `HARNESS_READ_TOKEN`へ設定する必要があります。未設定では検証jobが失敗します。設定と対象範囲は[CI手順](docs/runbook.md#github-actionsの検証)を参照してください。
+
+forkのPRは、非公開Harnessと専用secretを渡さないため対象外です。workflowの追加だけでCI成功とは扱わず、各PRの実行結果を確認します。ブラウザ機能試験や実DB試験も、このCIでは実行しません。
 
 依存とPrisma Clientを準備した環境で実行します。
 
@@ -176,4 +180,4 @@ pnpm dev:web
 - [要求仕様](docs/PRD.md)・[非機能要求](docs/NFR.md)・[実装ガイド](docs/IMPLEMENTATION_GUIDE.md)：設計資料。現在の実装状況はコードと個別仕様・検証記録も併せて確認
 - [全体レビュー記録](docs/work/harness-source-review/review.md)：段階的な改善の出発点。対処済みの課題も含む
 
-次の整備候補は、現行Prismaに対応したER図、GitHub Actionsによる検証の再現、承認フローの操作動画、ロール別認可表です。これらを追加することと、新機能を実装することは分けて進めます。
+次の整備候補は、現行Prismaに対応したER図、ブラウザ試験の自動化、承認フローの操作動画、ロール別認可表です。これらを追加することと、新機能を実装することは分けて進めます。

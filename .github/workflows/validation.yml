@@ -1,0 +1,74 @@
+# 同一repositoryのコードを、固定revisionのHarnessと既存Project Profileで検証する。
+# private Harnessを読む専用secretは取得stepだけに渡し、forkのコードは実行しない。
+name: MiniFlow validation
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Harness validation
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - name: Require dedicated Harness credential
+        env:
+          # 値そのものをshellへ渡さず、設定の有無だけを確認する。
+          HARNESS_CREDENTIAL_CONFIGURED: ${{ secrets.HARNESS_READ_TOKEN != '' }}
+        run: |
+          if [ "$HARNESS_CREDENTIAL_CONFIGURED" != 'true' ]; then
+            echo '::error::Set the read-only HARNESS_READ_TOKEN repository secret. See docs/runbook.md.'
+            exit 1
+          fi
+
+      - name: Checkout MiniFlow
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          submodules: false
+
+      - name: Read pinned Harness revision
+        id: harness
+        run: node .github/scripts/harness-ref.mjs
+
+      - name: Checkout pinned private Harness
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: Czmirror/ai-dev-context
+          ref: ${{ steps.harness.outputs.sha }}
+          path: .harness/upstream
+          token: ${{ secrets.HARNESS_READ_TOKEN }}
+          persist-credentials: false
+          submodules: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+          package-manager-cache: false
+
+      - name: Prepare declared pnpm version
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.6.3 --activate
+
+      - name: Install locked dependencies without lifecycle scripts
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Generate Prisma Client without connecting to a database
+        run: pnpm db:generate
+
+      - name: Check Project Profile
+        run: node .harness/upstream/scripts/validate-config.mjs
+
+      - name: Run Project Profile checks
+        run: node .harness/upstream/scripts/validate.mjs --execute
