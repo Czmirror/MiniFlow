@@ -47,6 +47,18 @@ logoutは操作中ブラウザのcookie削除だけで、全セッション失�
 
 HTTPとブラウザのfixture試験は架空ユーザーのメモリ保存先を使う。第3段階では別途、専用の使い捨てPostgreSQL16でmigration・競合・rollbackを検証した。既存DBの移行時間やバックアップ復元が成功した証明ではない。
 
+## GitHub Actionsの検証
+
+`.github/workflows/validation.yml`は同一repositoryのPR、mainへのpush、手動実行を対象にする。forkのPRはjobをskipする。同一repositoryにbranchを書ける人のコードだけを、非公開Harnessを取得するrunnerで実行する。branch保護やマージ制限はこのworkflowでは設定しない。
+
+非公開の共通Harnessを取得する認証を、MiniFlowのSettings → Secrets and variables → Actionsのrepository secret `HARNESS_READ_TOKEN`へ設定する。fine-grained tokenでは対象repositoryを`Czmirror/ai-dev-context`だけにし、Contents: readと自動付与のMetadata: readに限定する。発行主体・有効期限は運用者が決める。値はGitHubの設定欄だけに直接入力し、チャット・TickTick・Git・ログに書かない。既存の個人用tokenを流用・権限拡大しない。
+
+認証未設定なら固定の案内を出して失敗し、検証を省略して成功にしない。設定後は対象PRの失敗jobを再実行する。取得先は固定repository、revisionはMiniFlowが追跡するgitlinkのSHAであり、`.gitmodules`の任意URLや可変branchを取得しない。
+
+runnerは読み取り権限、20分の上限、cacheなしで動く。依存のlifecycle scriptを止めてinstallした後、Prisma Clientを明示生成し、ローカルと同じProfileを実行する。DB接続・migration・deploy・自動commit・artifactのuploadは行わない。Actionは固定SHAで使う。更新時は出典・権限・入力を確認し、CI差分としてレビューする。
+
+正常なGitHub-hosted runner上での一連の成功は、専用認証の設定後に確認する。ローカルの成功やworkflowの構文だけで成功済みとは記録しない。無効化が必要な場合はworkflowを停止し、専用の参照権限を失効する。
+
 ## 申請の保存世代とCSRFの切り替え
 
 `20261026010000_add_request_version`はrequestsへINTEGER NOT NULL DEFAULT 0を追加する。新コードの起動前に適用が必要。既存DBへの適用は別承認であり、今回適用したのは専用の使い捨てDBだけ。追加列を削除するrollbackは行わず、前進修正を優先する。
