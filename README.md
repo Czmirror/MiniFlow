@@ -176,7 +176,7 @@ pnpm dev:web
 - [API仕様](docs/API.md)：状態遷移、認証・認可、入力・エラーの契約
 - [ローカル運用手順](docs/runbook.md)：環境設定、schema適用、初期管理者の作成
 - [現行Prismaスキーマ](apps/api/prisma/schema.prisma)：実装しているモデルと関連
-- [ER図（現行Prismaへの更新待ち）](docs/ERD.md)：旧設計資料。teamsテーブルや外部キーなどに現行実装との差があるため、現行DBの説明には上記スキーマを参照
+- [現行データベースのER図](docs/ERD.md)
 - [要求仕様](docs/PRD.md)・[非機能要求](docs/NFR.md)・[実装ガイド](docs/IMPLEMENTATION_GUIDE.md)：設計資料。現在の実装状況はコードと個別仕様・検証記録も併せて確認
 - [全体レビュー記録](docs/work/harness-source-review/review.md)：段階的な改善の出発点。対処済みの課題も含む
 
