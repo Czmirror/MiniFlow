@@ -35,7 +35,7 @@ TypeScriptのモノレポで、業務ルール、ユースケース、DB・HTTP�
 
 公開ユーザー登録とメール招待はありません。初期管理者は運用者がCLIで作成し、以降のアカウントは管理者が発行します。
 **パスワードを忘れた利用者向けのメール再設定機能は未実装です。** `/account/password`は、ログイン済みの本人が現在のパスワードを入力して変更するAPIです。
-通知センター、LINE連携、多段承認も対象外です。公開デモURLやGitHub ActionsによるCI実行結果は、このREADMEでは提供していません。
+通知センター、LINE連携、多段承認も対象外です。公開デモURLは準備中です。
 
 ## 技術構成
 
@@ -67,8 +67,8 @@ AI支援開発のルールはGit submoduleの共通Harnessを参照し、検証�
 
 ## 検証状況
 
-直近のmainへ取り込まれた[申請詳細の検証記録](docs/work/harness-refresh-detail-design/result.md)では、**332件の試験、型検査、本番ビルド、テキスト形式・秘密情報の検査が成功**しています。
-これは記録された時点のローカル検証結果です。GitHub Actionsでの成功を示すものではありません。
+mainの自動検証結果は[GitHub Actionsの実行履歴](https://github.com/Czmirror/MiniFlow/actions/workflows/validation.yml?query=branch%3Amain+event%3Apush)で確認できます。
+2026年11月15日（日本時間）の[実行結果](https://github.com/Czmirror/MiniFlow/actions/runs/43622659140)では、**30ファイル・363件の試験**に加え、型検査、本番ビルド、テキスト形式・秘密情報の検査が通過しました。
 
 | 確認対象 | 実施内容と限界 |
 | --- | --- |
@@ -84,7 +84,7 @@ DB競合の具体的な結果と未検証範囲は[競合制御の検証記録](
 
 GitHub Actionsの定義は`.github/workflows/validation.yml`です。同一repositoryのPR、mainへのpush、手動実行で、以下と同じProject Profileを実行します。共通Harnessが非公開のため、専用の読み取り認証をActions secret `HARNESS_READ_TOKEN`へ設定する必要があります。未設定では検証jobが失敗します。設定と対象範囲は[CI手順](docs/runbook.md#github-actionsの検証)を参照してください。
 
-forkのPRは、非公開Harnessと専用secretを渡さないため対象外です。workflowの追加だけでCI成功とは扱わず、各PRの実行結果を確認します。ブラウザ機能試験や実DB試験も、このCIでは実行しません。
+forkのPRは、非公開Harnessと専用secretを渡さないため対象外です。各PRの検証結果はPRのChecksから確認できます。ブラウザ機能試験と実DB試験は別途実施します。
 
 依存とPrisma Clientを準備した環境で実行します。
 
