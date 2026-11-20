@@ -82,6 +82,10 @@ mainの自動検証結果は[GitHub Actionsの実行履歴](https://github.com/C
 DB競合の具体的な結果と未検証範囲は[競合制御の検証記録](docs/work/concurrency-csrf/result.md)を参照してください。その時点の全体検証には未通過項目もあり、DB試験の成功とは分けて記録しています。
 専用DBでの成功は、既存DBへの移行やバックアップ復元の保証ではありません。
 
+実PostgreSQLでの[ローカル承認フロー試験](docs/work/postgres-workflow-e2e/result.md)も用意しています。
+
+ローカルのブラウザ操作で申請から承認まで確認する手順は[承認フロー試験](docs/work/local-workflow-e2e/result.md)を参照してください。
+
 ### 自動検証の実行
 
 GitHub Actionsの定義は`.github/workflows/validation.yml`です。同一repositoryのPR、mainへのpush、手動実行で、以下と同じProject Profileを実行します。共通Harnessが非公開のため、専用の読み取り認証をActions secret `HARNESS_READ_TOKEN`へ設定する必要があります。未設定では検証jobが失敗します。設定と対象範囲は[CI手順](docs/runbook.md#github-actionsの検証)を参照してください。

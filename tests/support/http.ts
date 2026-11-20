@@ -41,16 +41,23 @@ export class MemoryUsers implements UserRepository {
   }
 }
 
+/** 架空の初期ユーザーを保存する。空の試験用保存先に1回だけ実行する。 */
+export async function seedTestUsers(users: UserRepository) {
+  const passwordHash = await (fixturePasswordHash ??= hashPassword(testPassword));
+  for (const [name, id] of Object.entries(userIds)) {
+    const user = new User({ id, email: `${name.toLowerCase()}@example.test`, passwordHash, displayName: "Fixture", language: "en", teamId: name === "Outsider" ? "team-2" : "team-1", role: name === "Outsider" ? "Applicant" : name, createdAt: new Date(), updatedAt: new Date() });
+    await users.create(user);
+  }
+}
+
 /** 設定・保存先・login操作を返す。実DBへ接続しない。呼び出し元はserver.close()する。 */
 export async function httpFixture(envOverride?: AppEnv, logger?: Parameters<typeof createHttpServer>[0]["logger"]) {
   const env = envOverride ?? getEnv({ JWT_SECRET: "test-only-authentication-key" });
   const users = new MemoryUsers();
   const requests = new InMemoryRequestRepository();
-  const passwordHash = await (fixturePasswordHash ??= hashPassword(testPassword));
-  for (const [name, id] of Object.entries(userIds)) {
-    const user = new User({ id, email: `${name.toLowerCase()}@example.test`, passwordHash, displayName: "Fixture", language: "en", teamId: name === "Outsider" ? "team-2" : "team-1", role: name === "Outsider" ? "Applicant" : name, createdAt: new Date(), updatedAt: new Date() });
-    users.users.set(id, user);
-  }
+  await seedTestUsers(users);
+  // 書込み件数は、初期データの投入後に行う試験対象の操作だけを数える。
+  users.writes = 0;
   const server = await createHttpServer({ env, userRepository: users, requestRepository: requests, logger });
   async function login(role: UserRole | "Outsider" = "Applicant") {
     const response = await server.inject({ method: "POST", url: "http://localhost:3001/auth/login", headers: { origin: env.corsOrigin }, payload: { email: `${role.toLowerCase()}@example.test`, password: testPassword } });
