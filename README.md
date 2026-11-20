@@ -80,6 +80,8 @@ mainの自動検証結果は[GitHub Actionsの実行履歴](https://github.com/C
 DB競合の具体的な結果と未検証範囲は[競合制御の検証記録](docs/work/concurrency-csrf/result.md)を参照してください。その時点の全体検証には未通過項目もあり、DB試験の成功とは分けて記録しています。
 専用DBでの成功は、既存DBへの移行やバックアップ復元の保証ではありません。
 
+実PostgreSQLでの[ローカル承認フロー試験](docs/work/postgres-workflow-e2e/result.md)も用意しています。
+
 ローカルのブラウザ操作で申請から承認まで確認する手順は[承認フロー試験](docs/work/local-workflow-e2e/result.md)を参照してください。
 
 ### 自動検証の実行

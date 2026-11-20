@@ -13,7 +13,8 @@
     "db:migrate": "pnpm --filter @miniflow/api db:migrate",
     "test": "vitest run",
     "typecheck:root": "tsc -p tsconfig.json --noEmit",
-    "test:browser:api": "vite-node tests/support/browserServer.ts"
+    "test:browser:api": "vite-node tests/support/browserServer.ts",
+    "test:browser:postgres": "vite-node tests/support/postgresBrowserServer.ts"
   },
   "devDependencies": {
     "@types/node": "^24.12.0",

@@ -1,0 +1,18 @@
+# ローカルブラウザ試験だけに使うDB。停止・再作成すると全データを破棄する。
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: miniflow_browser_test
+      POSTGRES_DB: miniflow_browser_test
+      # 架空データの使い捨てDBを、固定loopbackからのみ利用する。
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "127.0.0.1:55439:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U miniflow_browser_test -d miniflow_browser_test"]
+      interval: 1s
+      timeout: 5s
+      retries: 20
