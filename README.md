@@ -1,5 +1,7 @@
 # MiniFlow
 
+[![mainの自動検証](https://github.com/Czmirror/MiniFlow/actions/workflows/validation.yml/badge.svg?branch=main&event=push)](https://github.com/Czmirror/MiniFlow/actions/workflows/validation.yml?query=branch%3Amain+event%3Apush)
+
 MiniFlowは、チーム内の申請・承認を扱う業務システムのプロトタイプです。
 申請者が下書きを作成・提出し、承認者が承認または差し戻します。管理者はユーザーと所属・役割を管理します。
 TypeScriptのモノレポで、業務ルール、ユースケース、DB・HTTPの責務を分けて実装しています。
