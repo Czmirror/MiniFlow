@@ -12,12 +12,14 @@
     "db:generate": "pnpm --filter @miniflow/api db:generate",
     "db:migrate": "pnpm --filter @miniflow/api db:migrate",
     "test": "vitest run",
-    "typecheck:root": "tsc -p tsconfig.json --noEmit"
+    "typecheck:root": "tsc -p tsconfig.json --noEmit",
+    "test:browser:api": "vite-node tests/support/browserServer.ts"
   },
   "devDependencies": {
     "@types/node": "^24.12.0",
     "typescript": "^5.9.3",
-    "vitest": "^3.2.7"
+    "vitest": "^3.2.7",
+    "vite-node": "3.2.4"
   },
   "engines": {
     "node": ">=22.12.0"

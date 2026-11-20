@@ -98,6 +98,8 @@ Do NOT implement:
 
 ## ソースの地図
 
+- `tests/support/browserServer.ts` は架空ユーザーとメモリ保存先を使うローカル専用APIの入口。手順と結果は `docs/work/local-workflow-e2e/result.md`。
+
 - `.github/workflows/validation.yml`: 同一repositoryのPR・main push・手動実行を、既存Profileへ接続する。private Harnessの参照権限を専用secretに限定し、forkは対象外とする。
 - `.github/scripts/harness-ref.mjs`: 固定pathのgitlinkを検証し、CIの取得先revisionだけを出力する。秘密の入力とネットワーク操作は持たない。
 
