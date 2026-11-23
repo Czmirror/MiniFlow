@@ -17,9 +17,9 @@ import { AUTH_COOKIE_NAME, CSRF_COOKIE_NAME, SESSION_TTL_SECONDS } from "../../.
 import { loginSchema, accountSchema, passwordSchema, createUserSchema, userUpdateSchema } from "../validation/schemas.js";
 
 /**
- * 認証cookieとCSRF tokenを発行する。暗号操作は組立から受け取り、認証usecaseへ渡す。
+ * 認証cookieとCSRF tokenを発行する。暗号操作と検証済みCookie設定は組立から受け取り、プロセス環境を再読込しない。
  */
-export function registerAuthRoutes(server: FastifyInstance, repository: UserRepository, csrfSecret: string, passwords: PasswordOperations) {
+export function registerAuthRoutes(server: FastifyInstance, repository: UserRepository, csrfSecret: string, passwords: PasswordOperations, secureCookies: boolean) {
   server.post("/auth/login", { schema: loginSchema }, async (request, reply) => {
     const body = (request.body ?? {}) as Partial<{ email: string; password: string }>;
 
@@ -33,7 +33,7 @@ export function registerAuthRoutes(server: FastifyInstance, repository: UserRepo
       const csrfToken = createCsrfToken(csrfSecret, sid);
       const jwt = await reply.jwtSign({ sub: user.id, sv: user.sessionVersion, sid });
 
-      setAuthCookies(reply, jwt, csrfToken);
+      setAuthCookies(reply, jwt, csrfToken, secureCookies);
 
       return reply.send({
         user: toAuthUserDto(user)
@@ -44,7 +44,7 @@ export function registerAuthRoutes(server: FastifyInstance, repository: UserRepo
   });
 
   server.post("/auth/logout", { preHandler: [server.requireAuth, server.requireCsrf] }, async (_request, reply) => {
-    clearAuthCookies(reply);
+    clearAuthCookies(reply, secureCookies);
     return reply.code(204).send();
   });
 
@@ -105,7 +105,7 @@ export function registerAuthRoutes(server: FastifyInstance, repository: UserRepo
         return reply.code(404).send(notFound("user not found"));
       }
 
-      clearAuthCookies(reply);
+      clearAuthCookies(reply, secureCookies);
       return reply.send(toAuthUserDto(user));
     } catch (error) {
       return handleAuthError(reply, error, "failed to change password");
@@ -192,33 +192,33 @@ export function registerAuthRoutes(server: FastifyInstance, repository: UserRepo
   });
 }
 
-function setAuthCookies(reply: import("fastify").FastifyReply, jwt: string, csrfToken: string) {
-  reply.setCookie(AUTH_COOKIE_NAME, jwt, authCookieOptions());
-  reply.setCookie(CSRF_COOKIE_NAME, csrfToken, csrfCookieOptions());
+function setAuthCookies(reply: import("fastify").FastifyReply, jwt: string, csrfToken: string, secureCookies: boolean) {
+  reply.setCookie(AUTH_COOKIE_NAME, jwt, authCookieOptions(secureCookies));
+  reply.setCookie(CSRF_COOKIE_NAME, csrfToken, csrfCookieOptions(secureCookies));
 }
 
-function clearAuthCookies(reply: import("fastify").FastifyReply) {
-  reply.clearCookie(AUTH_COOKIE_NAME, authCookieOptions());
-  reply.clearCookie(CSRF_COOKIE_NAME, csrfCookieOptions());
+function clearAuthCookies(reply: import("fastify").FastifyReply, secureCookies: boolean) {
+  reply.clearCookie(AUTH_COOKIE_NAME, authCookieOptions(secureCookies));
+  reply.clearCookie(CSRF_COOKIE_NAME, csrfCookieOptions(secureCookies));
 }
 
-function authCookieOptions() {
+function authCookieOptions(secureCookies: boolean) {
   return {
     path: "/",
     maxAge: SESSION_TTL_SECONDS,
     httpOnly: true,
     sameSite: "lax" as const,
-    secure: process.env.NODE_ENV === "production"
+    secure: secureCookies
   };
 }
 
-function csrfCookieOptions() {
+function csrfCookieOptions(secureCookies: boolean) {
   return {
     path: "/",
     maxAge: SESSION_TTL_SECONDS,
     httpOnly: false,
     sameSite: "lax" as const,
-    secure: process.env.NODE_ENV === "production"
+    secure: secureCookies
   };
 }
 
