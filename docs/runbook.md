@@ -98,7 +98,7 @@ HTTPSは配信基盤で終端する。APIへ届くHostを確認して許可リ�
 
 本番APIは設定不足・HTTP Origin・短い署名鍵・PostgreSQL以外のDB URLなら起動前に拒否する。エラーは設定名だけを示し、実値を出さない。鍵の長さは乱数の強度を保証しない。
 
-既存の`apps/api/Dockerfile`はNode 20と開発起動を使うため公開用として使わない。配信基盤はNode 22.12以上とpnpm 10.6.3を指定し、固定lockfileからlifecycle scriptを止めて依存を入れ、Prisma Clientを生成してビルドする。既存の本番起動コマンドはAPIが`pnpm --filter @miniflow/api start`、Webが`pnpm --filter @miniflow/web start`。必要な環境変数を配信基盤側で先に注入する。DBのmigrationはビルド・起動へ自動的に混ぜない。
+`apps/api/Dockerfile`は本番用APIイメージを作る。[コンテナの手順](#apiの本番コンテナ)に従う。配信基盤はNode 22.12以上とpnpm 10.6.3を指定し、固定lockfileからlifecycle scriptを止めて依存を入れ、Prisma Clientを生成してビルドする。既存の本番起動コマンドはAPIが`pnpm --filter @miniflow/api start`、Webが`pnpm --filter @miniflow/web start`。必要な環境変数を配信基盤側で先に注入する。DBのmigrationはビルド・起動へ自動的に混ぜない。
 
 ### データとアクセス
 
@@ -116,3 +116,31 @@ HTTPSは配信基盤で終端する。APIへ届くHostを確認して許可リ�
 - 開始日時、revision、確認結果と未確認事項を秘密・個人情報なしで記録する。問題があれば配信基盤のアクセスを閉じて停止し、前進修正後に再検証する。
 
 今回はローカルの本番HTTP試験で設定・Cookie属性・Host/Origin/CSRFを検証する。公開先のリソース作成、TLS終端、DNS、ブラウザによるSecure Cookieの受理、専用DBへのmigration・アカウント作成は未実施。[作業結果](work/preview-config/result.md)を参照。
+
+
+## APIの本番コンテナ
+
+repository rootでビルドする。公式Node 22系のbase imageをdigest固定し、pnpm 10.6.3とlockfileを使う。依存のlifecycle scriptは止め、Prisma Clientを明示生成してAPIをコンパイルする。Prisma生成はDBへのmigrationではない。
+
+```sh
+docker build -f apps/api/Dockerfile -t miniflow-api:preview .
+```
+
+`.dockerignore`は必要なAPI・共有型・manifestだけを許可する。`.env`・秘密鍵・Git・Harness・テスト・Web・ローカル依存はビルドcontextへ渡さない。Dockerfileは実行用imageへ本番依存・ビルド済みJavaScript・package.jsonだけをコピーする。`fastify-plugin`は本番コードから直接使うため本番依存へ分類している。packageの新規追加やversion更新は行っていない。
+
+最終imageは`node`ユーザー（UID 1000）で`node dist/main.js`を実行する。Node 22.23.5のLinux/arm64でローカル確認済み。別architectureは未検証。イメージにpnpm・Prisma CLIの操作経路を用意せず、migrationは別の管理された実行環境で、対象DBを確認して個別承認後に行う。
+
+必要な本番設定は上の公開プレビュー設定表に従う。秘密は実行基盤の秘密設定から渡す。ローカルで確認する場合だけ、Git管理外の安全な場所へ開発用の設定ファイルを用意し、そのファイルを`--env-file`で指定する。実値を引数やshell履歴へ書かない。
+
+```sh
+docker run --rm --init --read-only --tmpfs /tmp:rw,noexec,nosuid,size=16m \
+  --cap-drop ALL --security-opt no-new-privileges \
+  --env-file /safe/location/preview.env --env NODE_ENV=production \
+  -p 127.0.0.1:3001:3001 miniflow-api:preview
+```
+
+上のファイルpathは説明用。Hostの許可リストは実際の接続先に合わせる。HTTPSは配信基盤で終端し、この例のHTTP待ち受けをインターネットへ直接公開しない。Web用イメージ・TLS・DB・デモアカウントはこのimageには含まれない。
+
+ローカル試験はDBなしの未認証応答・Host拒否・CORS preflightまで。[試験結果](work/preview-api-container/result.md)に確認範囲を残す。配信時は承認済みrevisionから作った同じimage digestを環境間で使い、戻す場合はアクセスを閉じて前の承認済みimageへ戻す。DBのschema・データを自動で巻き戻さない。
+
+base image内と依存package内のライセンス文は保持する。repository自体のLICENSEは未設定で、imageの外部配布は今回行わない。配布条件・必要な表示の最終確認は公開方法を決める段階に残る。
