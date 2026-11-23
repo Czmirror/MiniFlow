@@ -94,7 +94,7 @@ docker compose -p miniflow-container-e2e -f tests/integration/container.compose.
 
 Harness Profileの書式・型検査・31ファイル392テスト・本番build・秘密情報の限定パターン検査も成功した。E2E用JavaScriptはNodeの構文検査と実行で確認した。単体試験で業務処理を複製していない。DB migrationの新規作成、アプリの仕様変更、project依存・CI変更はない。
 
-自己レビューでは、固定DB/port、空DB以外のseed拒否、proxyのHost制限、ブラウザの固定Origin以外の通信拒否、Cookie値を保存しないことを確認した。独立AIレビューは実施後に追記する。人間による受け入れは未実施。
+自己レビューでは、固定DB/port、空DB以外のseed拒否、proxyのHost制限、ブラウザの固定Origin以外の通信拒否、Cookie値を保存しないことを確認した。独立AIレビュー（`ccc272e`→`0cb89d4`）は指摘なし。Security・Data・Tests・Docs and commentsの観点で固定DB/port・空DB以外の拒否・通信の限定・秘密を含まない証拠・責務分離を照合した。JavaScriptの構文検査は独立に成功し、実DB/E2E/全体検証の独立再実行は行っていない。人間による受け入れは未実施。
 
 この自己署名証明書の例外は固定localhost専用の新規contextだけであり、実公開先の証明書・DNS・TLS設定を確認した意味ではない。標準CIへE2Eはまだ含めていない。管理者画面、英語全画面、複数ブラウザ、ログイン試行制限・共有デモの改変/データ初期化対策は引き続き残る。
 
