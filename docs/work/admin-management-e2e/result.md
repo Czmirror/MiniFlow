@@ -44,3 +44,5 @@ Harnessの設定検証と実行計画を確認後、`NEXT_TELEMETRY_DISABLED=1 n
 今回の対象外は管理者の自己更新、再有効化後のtoken寿命、英語全画面、複数ブラウザ、CIの自動E2E。標準テスト数とブラウザの14項目を合算しない。
 
 自己レビューはsecurity/data/tests/docs-commentsの観点で差分を照合した。既存9項目と未知エラー拒否を維持し、追加の意図した拒否は対象session・path・method・statusに限定した。シナリオは別module、ブラウザ寿命・認証helper・出力は入口に置き、製品の認可ロジックを複製していない。既存ユーザー変更・品質基準の弱体化なし。業務仕様の変更がなく、新たな仕様書や画面設計図は対象外。人間による画面受け入れは未確認。独立レビューとPRでの確認を残す。
+
+独立AIレビュー（別context、対象`7cf43f7..6220ac4`）は指摘なし。security/data/tests/docs-commentsを読み、計画5項目・14項目の証拠・画像・構文・差分整合性を確認した。E2E/SQL/全体392テストはレビュー担当が再実行せず、主担当の実行証拠を照合した。人間の承認とは区別する。通常PRは[#28](https://github.com/Czmirror/MiniFlow/pull/28)。
