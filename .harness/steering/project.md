@@ -211,3 +211,9 @@ Do NOT implement:
 
 - `apps/api/Dockerfile`はNode 22でAPIをbuildし、非rootで成果物を起動する。`.dockerignore`はAPIに必要な入力だけを許可する。
 - `docs/specs/api-container.md`・`docs/tests/functional/api-container.md`・`docs/work/preview-api-container/`に契約と検証を置く。Web・TLS・DBの配信は対象外。
+
+## 本番コンテナのE2E
+
+- `tests/integration/container.compose.yml`は固定loopbackの使い捨てDBと本番API image、`tests/support/containerSeed.ts`は空の固定DBだけの初期化を担当する。
+- `tests/support/containerProxy.mjs`はローカルHTTPSの試験入口、`tests/e2e/containerWorkflow.mjs`はブラウザ操作を担当する。Playwrightは一時tools directoryから読み、projectの依存へ追加しない。
+- 試験仕様・手順・結果は`docs/tests/functional/container-workflow-e2e.md`と`docs/work/container-workflow-e2e/`。標準CIとは分けて実施する。

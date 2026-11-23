@@ -90,7 +90,7 @@ DB競合の具体的な結果と未検証範囲は[競合制御の検証記録](
 
 GitHub Actionsの定義は`.github/workflows/validation.yml`です。同一repositoryのPR、mainへのpush、手動実行で、以下と同じProject Profileを実行します。共通Harnessが非公開のため、専用の読み取り認証をActions secret `HARNESS_READ_TOKEN`へ設定する必要があります。未設定では検証jobが失敗します。設定と対象範囲は[CI手順](docs/runbook.md#github-actionsの検証)を参照してください。
 
-forkのPRは、非公開Harnessと専用secretを渡さないため対象外です。各PRの検証結果はPRのChecksから確認できます。ブラウザ機能試験と実DB試験は別途実施します。
+forkのPRは、非公開Harnessと専用secretを渡さないため対象外です。各PRの検証結果はPRのChecksから確認できます。ブラウザ機能試験と実DB試験は別途実施します。[本番APIコンテナ・実PostgreSQL・HTTPSを組み合わせたローカル自動E2E](docs/work/container-workflow-e2e/result.md)も確認しています。このE2Eは標準CIには含みません。
 
 依存とPrisma Clientを準備した環境で実行します。
 

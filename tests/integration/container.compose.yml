@@ -1,0 +1,39 @@
+# 本番APIのE2Eだけに使う。DBはtmpfsで、down後の再作成ではデータを残さない。
+services:
+  db:
+    image: postgres:16-alpine@sha256:a5074487380d4e686036ce61ed6f2d363939ae9a0c40123d1a9e3bb3a5f344b4
+    environment:
+      POSTGRES_USER: miniflow_container_test
+      POSTGRES_DB: miniflow_container_test
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "127.0.0.1:55449:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U miniflow_container_test -d miniflow_container_test"]
+      interval: 1s
+      timeout: 5s
+      retries: 20
+  api:
+    build:
+      context: ../..
+      dockerfile: apps/api/Dockerfile
+    image: miniflow-api:container-e2e
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://miniflow_container_test@db:5432/miniflow_container_test
+      JWT_SECRET: container-e2e-key-is-fake-and-local-only
+      CORS_ORIGIN: https://localhost:43150
+      API_ALLOWED_HOSTS: localhost:43151
+    ports:
+      - "127.0.0.1:43151:3001"

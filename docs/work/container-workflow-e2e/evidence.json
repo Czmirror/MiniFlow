@@ -1,0 +1,44 @@
+{
+  "browser": "157.0.8103.80",
+  "steps": [
+    "本番CookieのSecure・HttpOnly・SameSiteとログイン",
+    "CSRFなしのブラウザ更新を拒否",
+    "申請の作成と提出",
+    "承認者による理由付き差し戻し",
+    "差し戻し理由の表示と修正保存・再提出",
+    "同じ承認者による最終承認と2件の判断履歴",
+    "別チームの一覧非表示と詳細APIの拒否",
+    "API再起動後の認証・承認状態・履歴の保持",
+    "ログアウト時のCookie削除"
+  ],
+  "requestId": "66d34e45-508c-4cba-ad53-4b8d6efe4ff4",
+  "expectedHttpErrors": [
+    {
+      "status": 401,
+      "pathname": "/api/auth/me",
+      "expected": true
+    },
+    {
+      "status": 403,
+      "pathname": "/api/account",
+      "expected": true
+    },
+    {
+      "status": 401,
+      "pathname": "/api/auth/me",
+      "expected": true
+    },
+    {
+      "status": 401,
+      "pathname": "/api/auth/me",
+      "expected": true
+    },
+    {
+      "status": 403,
+      "pathname": "/api/requests/66d34e45-508c-4cba-ad53-4b8d6efe4ff4",
+      "expected": true
+    }
+  ],
+  "expectedConsoleErrors": 5,
+  "pageErrors": 0
+}
