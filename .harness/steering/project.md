@@ -201,3 +201,8 @@ Do NOT implement:
 - `apps/web/src/lib/requestCreation.ts`: 作成の確認と提出結果を区別する。作成を同期通知してから任意の提出を1回だけ実行し、古い成功・失敗は破棄する。画面状態は持たない。
 - `MiniFlowApp.createFromForm`: 作成確認直後に入力を初期化して対象IDを詳細へ保持する。部分失敗は既存の詳細再試行と同じ申請の提出から復帰する。
 - 仕様は`docs/specs/request-create-recovery.md`、試験と記録は`docs/tests/`と`docs/work/request-create-recovery/`。作成応答自体の消失に対する永続的な重複防止は対象外。
+
+## 公開プレビューの起動設定
+
+- `infrastructure/config/env.ts`は本番のHTTPS Origin・明示Host/DB・署名鍵を検証し、CookieのSecure属性を返す。`createHttpServer`が認証routeへ渡す。
+- 仕様と試験は`docs/specs/preview-config.md`・`docs/tests/`、公開前の手順は`docs/runbook.md`、検証と残課題は`docs/work/preview-config/`。公開先へのデプロイは未実施。

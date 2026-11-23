@@ -42,7 +42,7 @@ export async function createHttpServer(options: {
   await server.register(cookie);
   await server.register(jwt, { secret: env.jwtSecret, sign: { expiresIn: SESSION_TTL_SECONDS }, cookie: { cookieName: AUTH_COOKIE_NAME, signed: false } });
   await server.register(authPlugin, { userRepository: options.userRepository, csrfSecret: env.jwtSecret });
-  registerAuthRoutes(server, options.userRepository, env.jwtSecret, bcryptPasswordOperations);
+  registerAuthRoutes(server, options.userRepository, env.jwtSecret, bcryptPasswordOperations, env.secureCookies);
   registerRequestRoutes(server, options.requestRepository);
   return server;
 }
