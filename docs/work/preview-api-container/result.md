@@ -16,7 +16,7 @@ APIをNode 22系でビルドし、非rootでJavaScriptの成果物を起動す�
 
 ## 見つけた問題と修正
 
-初回の実起動は、本番HTTP pluginが直接importするfastify-pluginが開発依存に分類されていたため失敗した。同じversionのまま本番依存へ移し、lockfileの分類だけを更新した。新しいnpm packageやversion変更はない。
+初回の実起動は、本番HTTP pluginが直接importするfastify-pluginが開発依存に分類されていたため失敗した。同じversionのまま本番依存へ移し、lockfileの分類だけを更新した。新しいnpm packageやversion変更はない。既存の検証では本番依存だけの起動が抜けていたため、FT4・FT5で実imageの起動を確認した。
 
 初回context検査では親directoryの再許可によりWebのダミーファイルが残った。親の下を再度除外し、API・共有型の必要箇所だけを許可するよう修正した。context検査と本番image buildをやり直して成功した。最初の外部pathの検査用DockerfileはDockerの一時path権限で読めなかったため、ダミーcontext内へ置いて検査した。
 
@@ -26,10 +26,10 @@ Harnessの書式、全workspace/rootの型検査、31ファイル392件のテス
 
 自己レビュー: Dockerfileはbuildとruntimeの成果物境界を持ち、.dockerignoreは入力の選別を担当する。既存API・起動設定を再利用し、認証や業務ルールの複製・変更はない。元workspaceのホームページ変更は保護した。migrationの作成・適用、DB操作、クラウド変更は行っていない。
 
-独立レビューの結果は実施後に追記する。人間レビューは未実施で、状態はHumanReview待ち。
+独立AIレビュー（`c2840f2`→`bcc1afb`）は指摘なし。Security・Tests・Docs and commentsの観点で、AC1〜AC4と差分・記録を照合した。Docker/検証の独立再実行はしておらず、主担当の実行証拠との静的整合性の確認である。人間レビューは未実施で、状態はHumanReview待ち。
 
 ## 残課題と次の優先項目
 
 Webの配信成果物と、同一サイトのHTTPS構成・アクセス制限付き配信先を整える。公開先でTLS、Secure Cookieの受理、実DBへの承認フローを確認する必要がある。不特定多数向けのログイン試行制限・共有資格情報の改変対策・データ初期化は引き続き未整備で、今回のimageを公開デモ完成とは扱わない。
 
-別architectureのimage、実DB接続、公開先の動作、脆弱性監査、Dockerの自動CI試験は未検証/未整備。依存packageとbase imageのライセンス文は保持するが、repositoryのLICENSE選択・image外部配布に必要な表示の最終確認は公開方法を決める段階に残る。今回ユーザーへ後日行う設定作業は依頼していない。
+別architectureのimage、実DB接続、公開先の動作、脆弱性監査、Dockerの自動CI試験は未検証/未整備。主要依存（Fastify・fastify-plugin・bcryptjs・Prisma Client）のLICENSEは最終image内で確認した。依存packageとbase imageのライセンス文は保持するが、repositoryのLICENSE選択・image外部配布に必要な表示の最終確認は公開方法を決める段階に残る。今回ユーザーへ後日行う設定作業は依頼していない。
