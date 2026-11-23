@@ -1,10 +1,11 @@
-/** 固定localhostの本番API/実DBで承認フローを画面操作する。Playwrightは専用tools directoryから読む。 */
+/** 固定localhostの本番API/実DBで業務E2Eを組み立てる入口。Playwrightは専用tools directoryから読み、管理画面の操作は別moduleへ渡す。 */
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { mkdir, writeFile } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
+import { runAdminManagement } from "./adminManagement.mjs";
 
 if (!process.argv[2]) throw new Error("Pass the isolated Playwright tools directory");
 const requireTool = createRequire(join(resolve(process.argv[2]), "package.json"));
@@ -25,7 +26,8 @@ const browser = await chromium.launch({ channel: "chrome", headless: true });
 const result = { browser: browser.version(), steps: [] };
 function passed(name) { result.steps.push(name); console.log(`PASS ${name}`); }
 
-async function login(role) {
+// シナリオ固有の意図した拒否だけを呼び出し元が指定し、その他の失敗は結果検査で拒否する。
+async function login(role, expectedFailure = () => false) {
   // この固定localhost試験だけの自己署名証明書を許容する。OSの信頼設定は変更しない。
   const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1100 } });
   contexts.push(context);
@@ -43,7 +45,8 @@ async function login(role) {
     const pathname = new URL(response.url()).pathname;
     const expected = (!authenticated && pathname === "/api/auth/me" && response.status() === 401)
       || (pathname === "/api/account" && response.request().method() === "PATCH" && response.status() === 403)
-      || (role === "outsider" && pathname.startsWith("/api/requests/") && response.status() === 403);
+      || (role === "outsider" && pathname.startsWith("/api/requests/") && response.status() === 403)
+      || expectedFailure({ status: response.status(), pathname, method: response.request().method() });
     httpErrors.push({ status: response.status(), pathname, expected });
   });
   await page.goto(origin);
@@ -145,11 +148,13 @@ try {
   await expect(approver.page.getByRole("heading", { name: "ログイン", exact: true })).toBeVisible();
   assert.equal((await approver.context.cookies(origin)).some(cookie => cookie.name === "miniflow_auth"), false);
   passed("ログアウト時のCookie削除");
+  result.admin = await runAdminManagement({ login, reloadAuthenticated, expect, passed, output, origin });
   assert.deepEqual(pageErrors, []);
-  // 匿名起動時の401、CSRF/別チーム拒否の403は意図的な試験。HTTP応答も別に照合する。
+  // 匿名/無効化の401、権限/CSRF拒否の403、無効ユーザーのlogin 400はHTTP応答も照合する。
   assert.deepEqual(httpErrors.filter(item => !item.expected), []);
-  assert.equal(httpErrors.filter(item => item.status === 403).length, 2);
-  assert.equal(consoleErrors.filter(message => !/status of (401|403)/.test(message)).length, 0);
+  assert.equal(httpErrors.filter(item => item.status === 403).length, 2 + result.admin.forbiddenChecks);
+  assert.equal(httpErrors.filter(item => item.status === 400).length, 1);
+  assert.equal(consoleErrors.filter(message => !/status of (400|401|403)/.test(message)).length, 0);
   assert(consoleErrors.length <= httpErrors.length);
   result.expectedHttpErrors = httpErrors;
   result.expectedConsoleErrors = consoleErrors.length;

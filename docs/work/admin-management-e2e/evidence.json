@@ -1,0 +1,86 @@
+{
+  "browser": "157.0.8103.80",
+  "steps": [
+    "本番CookieのSecure・HttpOnly・SameSiteとログイン",
+    "CSRFなしのブラウザ更新を拒否",
+    "申請の作成と提出",
+    "承認者による理由付き差し戻し",
+    "差し戻し理由の表示と修正保存・再提出",
+    "同じ承認者による最終承認と2件の判断履歴",
+    "別チームの一覧非表示と詳細APIの拒否",
+    "API再起動後の認証・承認状態・履歴の保持",
+    "ログアウト時のCookie削除",
+    "管理者によるユーザー作成と一覧への反映",
+    "一般ユーザーの管理画面非表示と一覧・作成APIの拒否",
+    "管理者による表示名・所属・ロールの変更",
+    "既存セッションへの所属・ロール反映と所属の読み取り専用表示",
+    "無効化後の既存セッションと再ログインの拒否"
+  ],
+  "requestId": "1caf97a9-fd20-43a2-9b8f-97003c9067a5",
+  "admin": {
+    "userId": "617e469c-faf2-44ee-ae50-a3693b0ff85c",
+    "role": "Approver",
+    "teamId": "team-2",
+    "isActive": false,
+    "forbiddenChecks": 2
+  },
+  "expectedHttpErrors": [
+    {
+      "status": 401,
+      "pathname": "/api/auth/me",
+      "expected": true
+    },
+    {
+      "status": 403,
+      "pathname": "/api/account",
+      "expected": true
+    },
+    {
+      "status": 401,
+      "pathname": "/api/auth/me",
+      "expected": true
+    },
+    {
+      "status": 401,
+      "pathname": "/api/auth/me",
+      "expected": true
+    },
+    {
+      "status": 403,
+      "pathname": "/api/requests/1caf97a9-fd20-43a2-9b8f-97003c9067a5",
+      "expected": true
+    },
+    {
+      "status": 401,
+      "pathname": "/api/auth/me",
+      "expected": true
+    },
+    {
+      "status": 401,
+      "pathname": "/api/auth/me",
+      "expected": true
+    },
+    {
+      "status": 403,
+      "pathname": "/api/users",
+      "expected": true
+    },
+    {
+      "status": 403,
+      "pathname": "/api/users",
+      "expected": true
+    },
+    {
+      "status": 401,
+      "pathname": "/api/auth/me",
+      "expected": true
+    },
+    {
+      "status": 400,
+      "pathname": "/api/auth/login",
+      "expected": true
+    }
+  ],
+  "expectedConsoleErrors": 11,
+  "pageErrors": 0
+}

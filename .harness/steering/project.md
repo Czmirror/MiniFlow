@@ -217,3 +217,8 @@ Do NOT implement:
 - `tests/integration/container.compose.yml`は固定loopbackの使い捨てDBと本番API image、`tests/support/containerSeed.ts`は空の固定DBだけの初期化を担当する。
 - `tests/support/containerProxy.mjs`はローカルHTTPSの試験入口、`tests/e2e/containerWorkflow.mjs`はブラウザ操作を担当する。Playwrightは一時tools directoryから読み、projectの依存へ追加しない。
 - 試験仕様・手順・結果は`docs/tests/functional/container-workflow-e2e.md`と`docs/work/container-workflow-e2e/`。標準CIとは分けて実施する。
+
+## 管理者操作のE2E
+
+- `tests/e2e/adminManagement.mjs`は架空ユーザーの作成・所属/ロール変更・無効化と一般ユーザーの拒否を画面で確認する。`containerWorkflow.mjs`の共通login/復帰/結果記録を再利用する。
+- 検証結果と残課題は`docs/work/admin-management-e2e/`。アプリの認可契約や公開環境は変更しない。
