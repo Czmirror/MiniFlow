@@ -1,0 +1,31 @@
+# APIのビルドに必要な入力だけをDockerへ渡す。
+**
+!package.json
+!pnpm-workspace.yaml
+!pnpm-lock.yaml
+!apps/
+apps/**
+!apps/api/
+apps/api/**
+!apps/api/package.json
+!apps/api/tsconfig.json
+!apps/api/src/
+!apps/api/src/**
+!apps/api/prisma/
+!apps/api/prisma/**
+!packages/
+packages/**
+!packages/shared/
+packages/shared/**
+!packages/shared/package.json
+!packages/shared/tsconfig.json
+!packages/shared/src/
+!packages/shared/src/**
+# 許可したソース配下でもローカルの秘密ファイルを渡さない。
+**/.env*
+**/*.pem
+**/*.key
+**/node_modules
+**/.git
+**/.harness
+**/tests

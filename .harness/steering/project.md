@@ -206,3 +206,8 @@ Do NOT implement:
 
 - `infrastructure/config/env.ts`は本番のHTTPS Origin・明示Host/DB・署名鍵を検証し、CookieのSecure属性を返す。`createHttpServer`が認証routeへ渡す。
 - 仕様と試験は`docs/specs/preview-config.md`・`docs/tests/`、公開前の手順は`docs/runbook.md`、検証と残課題は`docs/work/preview-config/`。公開先へのデプロイは未実施。
+
+## APIの本番コンテナ
+
+- `apps/api/Dockerfile`はNode 22でAPIをbuildし、非rootで成果物を起動する。`.dockerignore`はAPIに必要な入力だけを許可する。
+- `docs/specs/api-container.md`・`docs/tests/functional/api-container.md`・`docs/work/preview-api-container/`に契約と検証を置く。Web・TLS・DBの配信は対象外。
