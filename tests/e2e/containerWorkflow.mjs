@@ -135,6 +135,12 @@ try {
   await expect(history).toContainText(reason);
   await expect(history).toContainText("内訳を確認しました。");
   passed("同じ承認者による最終承認と2件の判断履歴");
+  const completedActions = approver.page.getByRole("region", { name: "次の操作", exact: true });
+  await expect(completedActions).toContainText("承認は完了しています。追加の承認操作はありません。");
+  await expect(completedActions).not.toContainText("承認操作は、申請が提出された後に利用できます。");
+  await expect(completedActions.getByRole("button")).toHaveCount(0);
+  await expect(completedActions.getByRole("textbox")).toHaveCount(0);
+  passed("承認済みの案内は完了を示し承認操作を表示しない");
   await approver.page.screenshot({ path: join(output, "approved.png"), fullPage: true });
 
   const outsider = await login("outsider");
@@ -153,6 +159,7 @@ try {
   await openRequest(approver.page, updatedTitle);
   await state(approver.page, "承認済み");
   await expect(approver.page.getByRole("region", { name: "承認履歴" })).toContainText(reason);
+  await expect(completedActions).toContainText("承認は完了しています。追加の承認操作はありません。");
   passed("API再起動後の認証・承認状態・履歴の保持");
   await approver.page.getByRole("button", { name: "ログアウト", exact: true }).click();
   await expect(approver.page.getByRole("heading", { name: "ログイン", exact: true })).toBeVisible();

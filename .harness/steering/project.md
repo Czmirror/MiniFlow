@@ -227,3 +227,7 @@ Do NOT implement:
 
 - `tests/e2e/accountSecurity.mjs`は表示名・日英切替・パスワード変更と2セッションの失効を画面から検証する。ブラウザ寿命と認証helperは既存の入口を再利用する。
 - 計画・結果は`docs/work/account-security-e2e/`。製品の認証仕様・依存・CIは変更しない。
+
+## 承認済みの操作案内
+
+- 承認済みの操作案内は`RequestDetailActions`と共通辞書が担当する。日英の回帰試験と本番E2Eの記録は`docs/work/request-action-guidance/`。

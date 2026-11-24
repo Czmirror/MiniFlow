@@ -79,6 +79,19 @@ describe("詳細の本番部品", () => {
     const html = await render({ request: { ...request, status }, currentUser: { ...user, role, id: own ? "owner" : "other" }, approvals: [] });
     expect(new RegExp(`<button[^>]*>${text}</button>`).test(html)).toBe(allowed);
   });
+  it.each((["ja", "en"] as const).flatMap(locale =>
+    (["Applicant", "Approver", "Admin"] as const).flatMap(role =>
+      [true, false].map(own => ({ locale, role, own })))
+  ))("承認済みは完了を案内し操作を表示しない $locale/$role/owner=$own", async ({ locale, role, own }) => {
+    const html = await render({ labels: messages[locale], request: { ...request, status: "Approved" },
+      currentUser: { ...user, role, id: own ? "owner" : "other" } });
+    const actions = html.match(/<section class="detail-actions"[\s\S]*?<\/section>/)?.[0];
+    expect(actions).toBeDefined();
+    expect(actions).toContain(messages[locale].approvedRequestHelp);
+    expect(actions).not.toContain(messages[locale].approvalAvailableAfterSubmit);
+    expect(actions).not.toContain("<button");
+    expect(actions).not.toContain("<textarea");
+  });
   it("未選択には戻る操作を表示する", async () => {
     const { RequestDetailView } = await import(detailPath);
     const html = renderToStaticMarkup(createElement(RequestDetailView, { ...props, request: null }));
