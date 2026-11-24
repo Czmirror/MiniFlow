@@ -1,0 +1,31 @@
+# Web専用の入力境界。APIのDocker contextを広げない。
+**
+!package.json
+!pnpm-workspace.yaml
+!pnpm-lock.yaml
+!apps/
+!apps/web/
+!apps/web/package.json
+!apps/web/next.config.ts
+!apps/web/next-env.d.ts
+!apps/web/tsconfig.json
+!apps/web/app/
+!apps/web/app/**
+!apps/web/src/
+!apps/web/src/**
+!packages/
+!packages/shared/
+!packages/shared/package.json
+!packages/shared/tsconfig.json
+!packages/shared/src/
+!packages/shared/src/**
+# 許可したソース配下の秘密とローカル成果物も除外する。
+**/.env*
+**/*.pem
+**/*.key
+**/node_modules
+**/.git
+**/.harness
+**/tests
+**/.next
+**/*.tsbuildinfo
