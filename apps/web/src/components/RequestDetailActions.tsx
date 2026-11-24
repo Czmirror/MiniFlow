@@ -83,6 +83,9 @@ export function RequestDetailActions({ labels, request, currentUser, loading, ed
 }
 
 function approvalUnavailableMessage(status: RequestDto["status"], isOwnRequest: boolean, role: UserRole, labels: Labels) {
+  if (status === "Approved") {
+    return labels.approvedRequestHelp;
+  }
   if (status === "Pending" && role === "Applicant") {
     return labels.pendingApprovalHelp;
   }
