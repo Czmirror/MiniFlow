@@ -1,4 +1,4 @@
-/** 固定localhostの本番API/実DBで業務E2Eを組み立てる入口。Playwrightは専用tools directoryから読み、管理画面の操作は別moduleへ渡す。 */
+/** 固定localhostの本番API/実DBで業務E2Eを組み立てる入口。Playwrightは専用tools directoryから読み、管理画面と本人設定の操作は別moduleへ渡す。 */
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { resolve, dirname, join } from "node:path";
@@ -6,11 +6,14 @@ import { fileURLToPath } from "node:url";
 import { mkdir, writeFile } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
 import { runAdminManagement } from "./adminManagement.mjs";
+import { runAccountSecurity } from "./accountSecurity.mjs";
 
 if (!process.argv[2]) throw new Error("Pass the isolated Playwright tools directory");
 const requireTool = createRequire(join(resolve(process.argv[2]), "package.json"));
 const { chromium } = requireTool("playwright");
-const { expect } = requireTool("playwright/test");
+const { expect: baseExpect } = requireTool("playwright/test");
+// 他のローカルbuildと並行する環境でも描画を確認できるよう、上限を15秒に固定する。再試行で失敗を隠さない。
+const expect = baseExpect.configure({ timeout: 15000 });
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const output = resolve(process.argv[3] ?? "/tmp/miniflow-container-e2e-results");
 await mkdir(output, { recursive: true });
@@ -52,7 +55,14 @@ async function login(role, expectedFailure = () => false) {
   await page.goto(origin);
   await page.getByRole("textbox", { name: "メールアドレス", exact: true }).fill(`${role}@example.test`);
   await page.getByRole("textbox", { name: "パスワード", exact: true }).fill("fixture-password-only");
+  // ログインは本人確認後にCSRFも取得するため、両方の完了を待って画面を判定する。
+  const csrfReady = page.waitForResponse(response => response.url() === `${origin}/api/auth/csrf` && response.request().method() === "GET");
+  const signedIn = page.waitForResponse(response => response.url() === `${origin}/api/auth/login` && response.request().method() === "POST");
   await page.getByRole("button", { name: "ログイン", exact: true }).click();
+  const csrfResponse = await csrfReady;
+  assert.equal((await signedIn).status(), 200);
+  assert.equal(csrfResponse.status(), 200);
+  assert.equal(await csrfResponse.finished(), null);
   await expect(page.getByRole("heading", { name: "ダッシュボード", level: 1 })).toBeVisible();
   authenticated = true;
   return { page, context };
@@ -149,11 +159,12 @@ try {
   assert.equal((await approver.context.cookies(origin)).some(cookie => cookie.name === "miniflow_auth"), false);
   passed("ログアウト時のCookie削除");
   result.admin = await runAdminManagement({ login, reloadAuthenticated, expect, passed, output, origin });
+  result.account = await runAccountSecurity({ login, expect, passed, origin });
   assert.deepEqual(pageErrors, []);
-  // 匿名/無効化の401、権限/CSRF拒否の403、無効ユーザーのlogin 400はHTTP応答も照合する。
+  // 匿名/無効化の401、権限/CSRF拒否の403、本人確認/旧パスワード/無効ユーザーの400はHTTP応答も照合する。
   assert.deepEqual(httpErrors.filter(item => !item.expected), []);
   assert.equal(httpErrors.filter(item => item.status === 403).length, 2 + result.admin.forbiddenChecks);
-  assert.equal(httpErrors.filter(item => item.status === 400).length, 1);
+  assert.equal(httpErrors.filter(item => item.status === 400).length, 1 + result.account.rejectedRequests);
   assert.equal(consoleErrors.filter(message => !/status of (400|401|403)/.test(message)).length, 0);
   assert(consoleErrors.length <= httpErrors.length);
   result.expectedHttpErrors = httpErrors;

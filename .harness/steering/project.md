@@ -222,3 +222,8 @@ Do NOT implement:
 
 - `tests/e2e/adminManagement.mjs`は架空ユーザーの作成・所属/ロール変更・無効化と一般ユーザーの拒否を画面で確認する。`containerWorkflow.mjs`の共通login/復帰/結果記録を再利用する。
 - 検証結果と残課題は`docs/work/admin-management-e2e/`。アプリの認可契約や公開環境は変更しない。
+
+## 本人設定のE2E
+
+- `tests/e2e/accountSecurity.mjs`は表示名・日英切替・パスワード変更と2セッションの失効を画面から検証する。ブラウザ寿命と認証helperは既存の入口を再利用する。
+- 計画・結果は`docs/work/account-security-e2e/`。製品の認証仕様・依存・CIは変更しない。
