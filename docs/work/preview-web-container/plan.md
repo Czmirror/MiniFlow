@@ -23,3 +23,5 @@ DockerfileはWeb成果物の組立、専用ignoreは入力境界、next.config�
 Security/Sensitive data→allowlistのbuild入力とダミー混入試験。Web delivery→実HTTPのHTML/static headerとbuild識別子を照合。Database→個別承認の固定使い捨てDBだけを初期化し終了後に破棄。Quality→同じ22項目をWebコンテナへ接続して確認する。
 
 検証の穴は既存どおりlint・依存脆弱性監査・CI自動E2E。今回はこれらの基準を変えない。ホストCPU負荷で並列テストがtimeoutする場合は、期待値/timeoutを変えず直列実行とCIを照合する。UI変更・依存追加・DB schema/API変更はない。性能目標は未定。/tmpの容量16MiBは既存API試験と揃えた仮のローカル試験上限である。
+
+実動試験で15項目後の本人設定ログインが描画待機15秒で失敗したため、完了した業務/管理contextを本人設定の前に閉じる。期待値と上限は維持する。試験の資源解放として既存E2Eに最小変更し、同じ専用DBを再作成して全項目を再実行する。

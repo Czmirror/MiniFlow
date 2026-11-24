@@ -166,6 +166,8 @@ try {
   assert.equal((await approver.context.cookies(origin)).some(cookie => cookie.name === "miniflow_auth"), false);
   passed("ログアウト時のCookie削除");
   result.admin = await runAdminManagement({ login, reloadAuthenticated, expect, passed, output, origin });
+  // 完了した業務・管理画面のcontextを解放し、本人設定の2セッションだけを残す。
+  for (const context of contexts.splice(0)) await context.close();
   result.account = await runAccountSecurity({ login, expect, passed, origin });
   assert.deepEqual(pageErrors, []);
   // 匿名/無効化の401、権限/CSRF拒否の403、本人確認/旧パスワード/無効ユーザーの400はHTTP応答も照合する。
