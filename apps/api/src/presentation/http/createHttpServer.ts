@@ -19,6 +19,11 @@ export async function createHttpServer(options: {
 }) {
   const { env } = options;
   const server = Fastify({ disableRequestLogging: true, logger: options.logger ?? false, ajv: { customOptions: { coerceTypes: false, removeAdditional: false } } });
+  // 認証・申請データや拒否応答を共有cacheへ残さない。routeの成否にかかわらず送信直前に適用する。
+  server.addHook("onSend", async (_request, reply, payload) => {
+    reply.header("Cache-Control", "no-store");
+    return payload;
+  });
   server.addHook("onResponse", async (request, reply) => { recordOperation(request, reply); });
   server.addHook("onRequest", async (request, reply) => {
     const host = request.headers.host?.toLowerCase();

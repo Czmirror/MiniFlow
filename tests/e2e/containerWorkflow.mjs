@@ -24,6 +24,9 @@ const reason = "見積もりの内訳を追記してください。";
 const consoleErrors = [];
 const pageErrors = [];
 const httpErrors = [];
+// headerの値やCookieは保存せず、固定OriginのAPI応答の検査件数と不足だけを数える。
+let apiResponsesChecked = 0;
+const cachePolicyFailures = [];
 const contexts = [];
 const browser = await chromium.launch({ channel: "chrome", headless: true });
 const result = { browser: browser.version(), steps: [] };
@@ -44,8 +47,15 @@ async function login(role, expectedFailure = () => false) {
   page.on("pageerror", error => pageErrors.push(error.message));
   let authenticated = false;
   page.on("response", response => {
+    const target = new URL(response.url());
+    const pathname = target.pathname;
+    if (target.origin === origin && pathname.startsWith("/api/")) {
+      apiResponsesChecked++;
+      if (response.headers()["cache-control"] !== "no-store") {
+        cachePolicyFailures.push({ status: response.status(), method: response.request().method(), pathname });
+      }
+    }
     if (response.status() < 400) return;
-    const pathname = new URL(response.url()).pathname;
     const expected = (!authenticated && pathname === "/api/auth/me" && response.status() === 401)
       || (pathname === "/api/account" && response.request().method() === "PATCH" && response.status() === 403)
       || (role === "outsider" && pathname.startsWith("/api/requests/") && response.status() === 403)
@@ -176,6 +186,10 @@ try {
   assert.equal(httpErrors.filter(item => item.status === 400).length, 1 + result.account.rejectedRequests);
   assert.equal(consoleErrors.filter(message => !/status of (400|401|403)/.test(message)).length, 0);
   assert(consoleErrors.length <= httpErrors.length);
+  assert(apiResponsesChecked > 0);
+  assert.deepEqual(cachePolicyFailures, []);
+  result.cachePolicy = { apiResponsesChecked, failures: cachePolicyFailures.length };
+  passed("成功・拒否を含む全API応答の保存禁止");
   result.expectedHttpErrors = httpErrors;
   result.expectedConsoleErrors = consoleErrors.length;
   result.pageErrors = pageErrors.length;

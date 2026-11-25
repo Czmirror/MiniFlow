@@ -52,7 +52,7 @@ export function registerAuthRoutes(server: FastifyInstance, repository: UserRepo
     // 認証pluginが署名を検証した識別子だけを使い、GETで共有cookieを更新しない。
     if (!request.sessionId) return reply.code(401).send(unauthorized());
     const csrfToken = createCsrfToken(csrfSecret, request.sessionId);
-    return reply.header("Cache-Control", "no-store").send({ csrfToken });
+    return reply.send({ csrfToken });
   });
 
   server.get("/auth/me", { preHandler: [server.requireAuth] }, async (request, reply) => {
