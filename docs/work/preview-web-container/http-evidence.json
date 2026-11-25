@@ -1,0 +1,9 @@
+{
+  "htmlStatus": 200,
+  "htmlCache": "no-cache",
+  "robots": "noindex, nofollow",
+  "staticAssets": 7,
+  "allStaticStatus": 200,
+  "staticCache": "immutable",
+  "rejectedProbePaths": 3
+}

@@ -9,3 +9,9 @@
 - クリーン環境では pnpm install --frozen-lockfile --ignore-scripts の後に pnpm db:generate でPrisma Clientを明示生成する。
 - lintは未整備。型検査は未使用PromiseやDOMの安全性などを網羅しない。
 - 検証の定義は .harness/project.json、導入と更新の手順は .harness/README.md。
+
+## 配信
+
+- Web imageは既定で同一Originの`/api`へ接続する。公開API接続先はbuild時に固定され、実行時のenv変更では変わらない。秘密をbuild引数に渡さない。
+- Web/APIの公開配信先・TLS終端は未作成。ローカルE2Eだけ既存HTTPS proxyを使う。Nextのbuild IDとDocker image IDで成果物を照合し、HTML/staticの実HTTP headerを記録する。
+- 性能の目標は未定。今回、imageサイズの記録は行うが性能改善の主張はしない。

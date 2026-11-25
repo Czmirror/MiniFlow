@@ -231,3 +231,8 @@ Do NOT implement:
 ## 承認済みの操作案内
 
 - 承認済みの操作案内は`RequestDetailActions`と共通辞書が担当する。日英の回帰試験と本番E2Eの記録は`docs/work/request-action-guidance/`。
+
+## Webの本番コンテナ
+
+- `apps/web/Dockerfile`と専用ignoreは必要な入力だけでstandalone Webを作り、非rootで起動する。Next設定の`MINIFLOW_STANDALONE=1`はDocker buildだけで指定する。
+- `tests/integration/container.compose.yml`はWebも起動する。既存HTTPS proxyと22項目のdriverを再利用する。仕様は`docs/specs/web-container.md`、記録は`docs/work/preview-web-container/`。

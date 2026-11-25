@@ -144,3 +144,11 @@ docker run --rm --init --read-only --tmpfs /tmp:rw,noexec,nosuid,size=16m \
 ローカル試験はDBなしの未認証応答・Host拒否・CORS preflightまで。[試験結果](work/preview-api-container/result.md)に確認範囲を残す。配信時は承認済みrevisionから作った同じimage digestを環境間で使い、戻す場合はアクセスを閉じて前の承認済みimageへ戻す。DBのschema・データを自動で巻き戻さない。
 
 base image内と依存package内のライセンス文は保持する。repository自体のLICENSEは未設定で、imageの外部配布は今回行わない。配布条件・必要な表示の最終確認は公開方法を決める段階に残る。
+
+## Webコンテナの起動
+
+repository rootで`docker build -f apps/web/Dockerfile -t miniflow-web:local .`を実行する。build用のAPI接続先は既定で`/api`。変更する場合は公開情報だけを`--build-arg NEXT_PUBLIC_API_BASE_URL=...`で指定し、imageを作り直す。秘密やDB設定を渡さない。
+
+`docker run --rm --init --read-only --tmpfs /tmp:rw,noexec,nosuid,size=16m --cap-drop ALL --security-opt no-new-privileges -p 127.0.0.1:43152:3000 miniflow-web:local`でローカル起動できる。同一Originの`/api`をAPIへ転送するHTTPS入口は別途必要。imageはnodeユーザーでstandalone serverを起動する。通常の開発用build/startにはstandalone用envを指定しない。
+
+Webを含む試験は`tests/integration/container.compose.yml`を使う。ComposeがWebも起動するため、ホストでNextを別起動しない。migrationと架空ユーザー投入は個別承認された使い捨てDBだけで行う。既存の[22項目E2E](work/request-action-guidance/result.md)を同じdriverで再実行する。公開TLS/DNS・共有デモの運用は未構築。
