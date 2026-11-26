@@ -1,0 +1,14 @@
+{
+  "htmlStatus": 200,
+  "htmlCache": "no-cache",
+  "robots": "noindex, nofollow",
+  "staticAssets": 7,
+  "staticStatus": 200,
+  "staticCache": "immutable",
+  "anonymousApiStatus": 401,
+  "untrustedOriginStatus": 403,
+  "apiCache": "no-store",
+  "apiPublishedPorts": 0,
+  "upstream": "api.railway.internal:3001",
+  "environment": "local DNS alias, not Railway deployment"
+}

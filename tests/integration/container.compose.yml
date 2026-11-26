@@ -34,9 +34,7 @@ services:
       DATABASE_URL: postgresql://miniflow_container_test@db:5432/miniflow_container_test
       JWT_SECRET: container-e2e-key-is-fake-and-local-only
       CORS_ORIGIN: https://localhost:43150
-      API_ALLOWED_HOSTS: localhost:43151
-    ports:
-      - "127.0.0.1:43151:3001"
+      API_ALLOWED_HOSTS: api:3001
   web:
     build:
       context: ../..

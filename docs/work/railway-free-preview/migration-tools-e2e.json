@@ -1,0 +1,130 @@
+{
+  "browser": "158.0.8127.37",
+  "steps": [
+    "本番CookieのSecure・HttpOnly・SameSiteとログイン",
+    "CSRFなしのブラウザ更新を拒否",
+    "申請の作成と提出",
+    "承認者による理由付き差し戻し",
+    "差し戻し理由の表示と修正保存・再提出",
+    "同じ承認者による最終承認と2件の判断履歴",
+    "承認済みの案内は完了を示し承認操作を表示しない",
+    "別チームの一覧非表示と詳細APIの拒否",
+    "API再起動後の認証・承認状態・履歴の保持",
+    "ログアウト時のCookie削除",
+    "管理者によるユーザー作成と一覧への反映",
+    "一般ユーザーの管理画面非表示と一覧・作成APIの拒否",
+    "管理者による表示名・所属・ロールの変更",
+    "既存セッションへの所属・ロール反映と所属の読み取り専用表示",
+    "無効化後の既存セッションと再ログインの拒否",
+    "表示名と言語の保存と英語の設定画面への反映",
+    "再読込後の表示名と言語の保持",
+    "現在パスワードの不一致を拒否し既存セッションを維持",
+    "パスワード変更後の操作側Cookie削除と再ログイン表示",
+    "別ブラウザの変更前セッションを401で拒否",
+    "旧パスワードの拒否と新パスワードでの再ログイン",
+    "再ログイン後の日本語への切替と本人情報の保持",
+    "成功・拒否を含む全API応答の保存禁止"
+  ],
+  "requestId": "0afb0811-83e7-4e3f-a107-2507aa38247e",
+  "admin": {
+    "userId": "3fe30612-ae96-4983-bbcf-9a8d2703682a",
+    "role": "Approver",
+    "teamId": "team-2",
+    "isActive": false,
+    "forbiddenChecks": 2
+  },
+  "account": {
+    "displayName": "E2E 本人設定",
+    "language": "ja",
+    "invalidatedSessions": 2,
+    "rejectedRequests": 2
+  },
+  "cachePolicy": {
+    "apiResponsesChecked": 123,
+    "failures": 0
+  },
+  "expectedHttpErrors": [
+    {
+      "status": 401,
+      "pathname": "/api/auth/me",
+      "expected": true
+    },
+    {
+      "status": 403,
+      "pathname": "/api/account",
+      "expected": true
+    },
+    {
+      "status": 401,
+      "pathname": "/api/auth/me",
+      "expected": true
+    },
+    {
+      "status": 401,
+      "pathname": "/api/auth/me",
+      "expected": true
+    },
+    {
+      "status": 403,
+      "pathname": "/api/requests/0afb0811-83e7-4e3f-a107-2507aa38247e",
+      "expected": true
+    },
+    {
+      "status": 401,
+      "pathname": "/api/auth/me",
+      "expected": true
+    },
+    {
+      "status": 401,
+      "pathname": "/api/auth/me",
+      "expected": true
+    },
+    {
+      "status": 403,
+      "pathname": "/api/users",
+      "expected": true
+    },
+    {
+      "status": 403,
+      "pathname": "/api/users",
+      "expected": true
+    },
+    {
+      "status": 401,
+      "pathname": "/api/auth/me",
+      "expected": true
+    },
+    {
+      "status": 400,
+      "pathname": "/api/auth/login",
+      "expected": true
+    },
+    {
+      "status": 401,
+      "pathname": "/api/auth/me",
+      "expected": true
+    },
+    {
+      "status": 401,
+      "pathname": "/api/auth/me",
+      "expected": true
+    },
+    {
+      "status": 400,
+      "pathname": "/api/account/password",
+      "expected": true
+    },
+    {
+      "status": 401,
+      "pathname": "/api/auth/me",
+      "expected": true
+    },
+    {
+      "status": 400,
+      "pathname": "/api/auth/login",
+      "expected": true
+    }
+  ],
+  "expectedConsoleErrors": 16,
+  "pageErrors": 0
+}

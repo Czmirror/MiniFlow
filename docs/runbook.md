@@ -149,10 +149,28 @@ base image内と依存package内のライセンス文は保持する。repositor
 
 repository rootで`docker build -f apps/web/Dockerfile -t miniflow-web:local .`を実行する。build用のAPI接続先は既定で`/api`。変更する場合は公開情報だけを`--build-arg NEXT_PUBLIC_API_BASE_URL=...`で指定し、imageを作り直す。秘密やDB設定を渡さない。
 
-`docker run --rm --init --read-only --tmpfs /tmp:rw,noexec,nosuid,size=16m --cap-drop ALL --security-opt no-new-privileges -p 127.0.0.1:43152:3000 miniflow-web:local`でローカル起動できる。同一Originの`/api`をAPIへ転送するHTTPS入口は別途必要。imageはnodeユーザーでstandalone serverを起動する。通常の開発用build/startにはstandalone用envを指定しない。
+`docker run --rm --init --read-only --tmpfs /tmp:rw,noexec,nosuid,size=16m --cap-drop ALL --security-opt no-new-privileges -p 127.0.0.1:43152:3000 miniflow-web:local`でローカル起動できる。Docker Webは`/api`を固定内部`http://api:3001`へ転送する。APIの`API_ALLOWED_HOSTS`は`api:3001`とし、同じ私設ネットワークへ接続する。HTTPS入口はWebだけへ転送し、APIを直接公開しない。imageはnodeユーザーでstandalone serverを起動する。通常の開発用build/startにはstandalone用envを指定しない。
 
 Webを含む試験は`tests/integration/container.compose.yml`を使う。ComposeがWebも起動するため、ホストでNextを別起動しない。migrationと架空ユーザー投入は個別承認された使い捨てDBだけで行う。既存の[22項目E2E](work/request-action-guidance/result.md)を同じdriverで再実行する。公開TLS/DNS・共有デモの運用は未構築。
 
 ## APIのcache方針
 
 認証・申請・管理を含む全API応答は、成功/拒否/障害/空応答とも`Cache-Control: no-store`を返す。共有cacheとブラウザのHTTP cacheへ保存させないための指定であり、過去のcacheや履歴・画面メモリを消去する機能ではない。公開先でheaderを上書きせず、認証付きAPIをcacheする設定を追加しない。WebのHTML/staticのcacheとは区別する。[仕様と試験](specs/api-cache-safety.md)を参照。
+
+## Webだけを公開入口にする構成
+
+Docker Webの既定`/api`は本番Webのrewritesで内部APIへ届く。転送先は`api:3001`で固定し、requestのqueryやheaderで任意のURLを指定する機能はない。APIサービス名とportを変える場合はWebの配信設定も変更してimageを作り直す。通常のホスト開発ではこの転送を有効にしない。
+
+ローカルE2Eでは試験TLS入口→Web→API→DBの経路を使う。ComposeのAPIはhost portへ公開しない。DBのloopback portは承認済み初期化試験用であり、このComposeをそのまま公開用へ流用しない。公開先では信頼されたTLS、入口のアクセス制限、非公開DB、専用の秘密設定を別途準備する。
+
+[接続仕様](specs/same-origin-preview.md)と[検証記録](work/same-origin-preview/result.md)を参照。以前のAPI直接port 43151へ接続する手順は現在のComposeでは使わない。過去の作業結果は当時のrevisionの記録として残す。
+
+## Railwayで試す場合
+
+[無料枠の公開準備](railway-preview.md)にサービス構成と設定表をまとめる。Webのbuild引数MINIFLOW_DEPLOY_TARGET=railwayで固定内部api.railway.internal:3001へ接続する。アカウント接続済みで、Web/APIの設定は未適用。実公開は未実施。localhost DBの既存承認をRailway DBへ適用しない。
+
+## コンテナからDB更新を明示実行する
+
+API imageは既存Prisma CLI、schema、9件のmigrationを同梱する。通常のAPI起動やimageのbuildではDB更新を行わない。対象環境・DB・schema・既存データ・復旧方法を照合し、個別承認を受けた後にだけ、対象APIコンテナ内の/appで`node node_modules/prisma/build/index.js migrate deploy --schema=prisma/schema.prisma`を実行する。接続先は実行環境のDATABASE_URLを使い、引数・ログ・チャットへ実値を書かない。
+
+起動時にpnpm/npmを取得したり、Prismaのファイルをダウンロードしたりする手順は使わない。必要な実行ファイルはbuild時に揃え、非root・読取専用・通信なしの版確認で照合する。`migrate dev`や`db push`を公開DBへ使わず、実行権限を持つ人が失敗内容と適用状況を確認する。既存DBをresetせず、失敗時は公開を止めて前進修正を検討する。

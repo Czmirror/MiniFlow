@@ -1,0 +1,13 @@
+{
+  "htmlStatus": 200,
+  "htmlCache": "no-cache",
+  "robots": "noindex, nofollow",
+  "staticAssets": 7,
+  "staticStatus": 200,
+  "staticCache": "immutable",
+  "anonymousApiStatus": 401,
+  "untrustedOriginStatus": 403,
+  "apiCache": "no-store",
+  "untrustedEntryHostStatus": 403,
+  "apiPublishedPorts": 0
+}

@@ -20,13 +20,15 @@ COPY packages/shared/tsconfig.json packages/shared/tsconfig.json
 RUN pnpm db:generate && pnpm --filter @miniflow/api build
 # workspace設定を変更せず本番依存だけを分離し、分離先でPrisma Clientを生成する。
 RUN pnpm --filter @miniflow/api deploy --legacy --prod --ignore-scripts /out \
-  && pnpm --filter @miniflow/api exec prisma generate --schema=/out/prisma/schema.prisma
+  && node /out/node_modules/prisma/build/index.js generate --schema=/out/prisma/schema.prisma
 
 FROM base AS runtime
 WORKDIR /app
 ENV NODE_ENV=production HOST=0.0.0.0 PORT=3001
 COPY --from=build /out/node_modules ./node_modules
 COPY --from=build /out/package.json ./package.json
+# 承認後の明示的なDB更新に使う。通常起動とbuildでは適用しない。
+COPY --from=build /out/prisma ./prisma
 COPY --from=build /build/apps/api/dist ./dist
 USER node
 EXPOSE 3001
