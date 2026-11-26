@@ -164,3 +164,7 @@ Docker Webの既定`/api`は本番Webのrewritesで内部APIへ届く。転送�
 ローカルE2Eでは試験TLS入口→Web→API→DBの経路を使う。ComposeのAPIはhost portへ公開しない。DBのloopback portは承認済み初期化試験用であり、このComposeをそのまま公開用へ流用しない。公開先では信頼されたTLS、入口のアクセス制限、非公開DB、専用の秘密設定を別途準備する。
 
 [接続仕様](specs/same-origin-preview.md)と[検証記録](work/same-origin-preview/result.md)を参照。以前のAPI直接port 43151へ接続する手順は現在のComposeでは使わない。過去の作業結果は当時のrevisionの記録として残す。
+
+## Railwayで試す場合
+
+[無料枠の公開準備](railway-preview.md)にサービス構成と設定表をまとめる。Webのbuild引数MINIFLOW_DEPLOY_TARGET=railwayで固定内部api.railway.internal:3001へ接続する。アカウント未接続のため実公開は未実施。localhost DBの既存承認をRailway DBへ適用しない。

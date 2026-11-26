@@ -19,3 +19,5 @@
 - APIは成功・エラー・空応答を含めて`Cache-Control: no-store`とする。WebのHTML/staticのcache方針は別に維持する。公開先のheader上書きは配信時に確認する。
 
 - Docker用Webは/apiを内部http://api:3001へ転送する。APIの許可Hostはapi:3001。TLS入口はWebだけへ接続し、APIを直接公開しない。公開先のTLS/アクセス制限は未作成。
+
+- Web buildのMINIFLOW_DEPLOY_TARGETはcompose（既定）/railwayだけ。Railwayは内部api.railway.internal:3001へ接続し、API_ALLOWED_HOSTSも同じ値にする。アカウント接続/無料枠確認/実公開は未完了。

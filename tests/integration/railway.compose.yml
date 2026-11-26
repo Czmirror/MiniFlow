@@ -1,0 +1,13 @@
+# Railway内部名のローカル再現だけを行う。基本Composeと同じ承認済みtmpfs DBを使う。
+services:
+  api:
+    environment:
+      API_ALLOWED_HOSTS: api.railway.internal:3001
+    networks:
+      default:
+        aliases:
+          - api.railway.internal
+  web:
+    build:
+      args:
+        MINIFLOW_DEPLOY_TARGET: railway

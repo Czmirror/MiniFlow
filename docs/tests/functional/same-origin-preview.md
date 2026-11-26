@@ -10,3 +10,12 @@
 | FT4 | AC4 | HTML200/no-cache/noindexとstatic200/immutable、image/Next build IDを照合 | 成功 |
 
 [結果](../../work/same-origin-preview/result.md)へ証拠を残す。公開TLS/DNS/CDN・負荷・複数ブラウザは未検証。
+
+## Railway内部名の追加確認（2026-11-26）
+
+| ID | 条件 | 手順/期待 | 結果 |
+| --- | --- | --- | --- |
+| RFT1 | AC1 | compose既定/railway固定先と空/未知拒否を単体確認 | 未実施 |
+| RFT2 | AC1/AC2/AC3 | Railway指定のWeb imageと内部DNS aliasで23項目・no-store/SQLを確認 | 未実施 |
+
+実Railwayのプラン/残枠/HTTPS/サービス起動は接続後に確認する。ローカルalias試験を実公開の成功にしない。

@@ -244,3 +244,7 @@ Do NOT implement:
 ## Web経由のAPI接続
 
 - Docker用next.configの固定rewritesは/apiを内部api:3001へ転送する。試験proxyはTLSだけを担当し、ComposeのAPI portは非公開。契約と検証は`docs/specs/same-origin-preview.md`と`docs/work/same-origin-preview/`。
+
+## Railway無料枠の準備
+
+- `src/config/apiProxy.ts`はcompose/railwayを固定内部URLへ対応させる。`tests/integration/railway.compose.yml`は同じ専用DBでRailway内部DNSを再現するoverride。手順と未完了条件は`docs/work/railway-free-preview/`。
