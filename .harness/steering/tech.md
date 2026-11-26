@@ -17,3 +17,5 @@
 - 性能の目標は未定。今回、imageサイズの記録は行うが性能改善の主張はしない。
 
 - APIは成功・エラー・空応答を含めて`Cache-Control: no-store`とする。WebのHTML/staticのcache方針は別に維持する。公開先のheader上書きは配信時に確認する。
+
+- Docker用Webは/apiを内部http://api:3001へ転送する。APIの許可Hostはapi:3001。TLS入口はWebだけへ接続し、APIを直接公開しない。公開先のTLS/アクセス制限は未作成。

@@ -11,6 +11,10 @@ const nextConfig: NextConfig = {
     { source: "/:path*", headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }] },
     { source: "/", headers: [{ key: "Cache-Control", value: "no-cache" }] }
   ] : [],
+  // 転送先はコンテナ内部の固定サービスに限定し、利用者のURLやheaderから組み立てない。
+  rewrites: async () => standaloneBuild ? [
+    { source: "/api/:path*", destination: "http://api:3001/:path*" }
+  ] : [],
   transpilePackages: ["@miniflow/shared"],
   outputFileTracingRoot: path.join(__dirname, "../..")
 };

@@ -11,6 +11,6 @@ Web画面を公開先へ運べる成果物として作り、ホストの開発�
 | WC5 | Web/API/実PostgreSQLと固定localhost HTTPSで既存22項目が成功する。API再起動後の認証・保存とCookie/CSRF/権限境界を維持する |
 | WC6 | Docker用のstandalone出力切替は通常のローカルbuild/startに影響させない。配布物のNext build IDとimage IDを確認できる |
 
-`MINIFLOW_STANDALONE=1`はDocker buildだけで指定する内部の出力切替。PORT/HOSTNAMEはNode serverの待受設定で、コンテナの既定は3000/0.0.0.0。/apiをAPIへ転送する入口は配信先で別途必要。今回のTLSはローカル試験専用で、実公開証明書の検証ではない。
+`MINIFLOW_STANDALONE=1`はDocker buildだけで指定する内部の出力切替。PORT/HOSTNAMEはNode serverの待受設定で、コンテナの既定は3000/0.0.0.0。Docker Webは[同一Origin接続](same-origin-preview.md)で/apiを内部APIへ転送する。TLS入口は配信先で別途必要。今回のTLSはローカル試験専用で、実公開証明書の検証ではない。
 
 2026-11-25作成。[計画](../work/preview-web-container/plan.md)、[機能試験](../tests/functional/web-container.md)。
