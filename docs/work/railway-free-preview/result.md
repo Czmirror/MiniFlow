@@ -33,3 +33,17 @@ SQLはusers5、本人ja/sessionVersion1、管理対象Approver/team-2/無効、�
 無料枠の実稼働/sleep/復帰/容量/消費と実HTTPSの確認は未実施。ローカル成功を実公開の証拠にしない。負荷性能の目標は未定で、常設稼働を保証しない。実Railwayの起動・公開部分は準備途中、ローカル実装はHumanReview待ちとして分ける。公開入口のアクセス制限・Host・信頼されたTLS・公開先E2E・データ復旧方法が未確認なら資格情報を不特定多数へ公開しない。
 
 DB schemaとmigrationファイルは変更なし。既存9migrationの今回の適用先は、個別承認済み固定localhost:55449/miniflow_container_testの空tmpfsだけ。元workspaceのホームページ変更を保護している。画面変更はなく視覚設計比較は適用外。公開時のLICENSE/表示条件と人間による実画面確認は残る。新しい範囲外問題はなし。
+
+## 2026-11-27：専用DBの稼働前準備
+
+会話「とりあえず次へ。期間すぎる前に候補を考えたいです」に基づき、同じ公開準備を続けた。元workspaceの変更は触らず、作業branchとremoteは24f15c4で一致、mainはaa44b21のままと確認した。
+
+Railwayの標準PostgreSQLテンプレートは18を指していたため、自動導入しなかった。ローカル23項目で使用済みの公式postgres:16-alpineを同じdigest a5074487380d4e686036ce61ed6f2d363939ae9a0c40123d1a9e3bb3a5f344b4で指定した。新規service「Postgres」と専用volume「miniflow-preview-data」を未適用で保存した。容量500MBは継続無料枠の0.5GB以内に収めるための構成値であり、実際の消費量は未検証。
+
+DB名とユーザー名はminiflow_preview、保存先は/var/lib/postgresql/data/pgdata、volumeのmount先は/var/lib/postgresql/data。POSTGRES_PASSWORDは未設定。認証を無効にするtrust設定は使わない。APIからの接続情報もまだ設定せず、不完全な状態で起動しない。
+
+対象serviceはaad91f63-d2c7-44be-9dc5-59ba36c7ec45、volumeはcda535d2-11fc-4f5f-a829-2c6559ec4519。同じpending patchの保存件数は37件となった。get-staged-changesで3servicesと1volumeの新規作成のみ、STAGED/destructive=falseを照合した。実際のresource払い出し・起動・DB作成・migration・データ投入・公開は未実施。Web/APIの上限設定の問題も未解決である。
+
+自己レビューでは、既存DBや既存volumeの更新/削除が含まれないこと、DBが検証済み16のままであること、秘密値が差分に含まれないことを確認した。今回は準備記録と未適用構成だけの変更で、製品コード・SQL・試験コードは変更していない。415テスト/23項目E2Eの過去の成功を実Railway DBの成功に置き換えない。稼働前の差分照合は成功、実環境E2Eは未実施。
+
+試用終了前の公開先比較をTickTickへ重複なしで登録した。期限・通知・繰り返しは指定されていないため設定していない。比較は実測使用量、継続無料枠、休止・復帰、データ保持と移行の手間を基準とし、有料契約は別途判断する。次は秘密設定、リソース上限、入口制限、DB初期化手段と復旧手順を具体化する。実DBへの適用には対象を示した個別承認が必要な状態を維持する。
