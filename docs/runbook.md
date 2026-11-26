@@ -167,4 +167,4 @@ Docker Webの既定`/api`は本番Webのrewritesで内部APIへ届く。転送�
 
 ## Railwayで試す場合
 
-[無料枠の公開準備](railway-preview.md)にサービス構成と設定表をまとめる。Webのbuild引数MINIFLOW_DEPLOY_TARGET=railwayで固定内部api.railway.internal:3001へ接続する。アカウント未接続のため実公開は未実施。localhost DBの既存承認をRailway DBへ適用しない。
+[無料枠の公開準備](railway-preview.md)にサービス構成と設定表をまとめる。Webのbuild引数MINIFLOW_DEPLOY_TARGET=railwayで固定内部api.railway.internal:3001へ接続する。アカウント接続済みで、Web/APIの設定は未適用。実公開は未実施。localhost DBの既存承認をRailway DBへ適用しない。
