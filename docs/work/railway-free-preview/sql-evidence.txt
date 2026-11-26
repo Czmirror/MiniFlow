@@ -1,0 +1,24 @@
+ users
+-------
+     5
+(1 row)
+
+ displayName  | language | sessionVersion
+--------------+----------+----------------
+ E2E 本人設定 | ja       |              1
+(1 row)
+
+   role   | teamId | isActive
+----------+--------+----------
+ Approver | team-2 | f
+(1 row)
+
+ forbidden_users
+-----------------
+               0
+(1 row)
+
+  status  | version | decisions | actors
+----------+---------+-----------+--------
+ Approved |       7 |         2 |      1
+(1 row)

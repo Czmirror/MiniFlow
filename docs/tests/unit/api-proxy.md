@@ -4,7 +4,7 @@
 
 | ID | 観点 | 対応試験 | 結果 |
 | --- | --- | --- | --- |
-| UT1 | 未指定とcomposeは既存先、railwayだけ専用内部先 | ApiProxy.spec.tsの固定先 | 未実施 |
-| UT2 | 空/未知/任意URL/大文字/空白を拒否し入力値をerrorへ出さない | ApiProxy.spec.tsの未知拒否 | 未実施 |
+| UT1 | 未指定とcomposeは既存先、railwayだけ専用内部先 | ApiProxy.spec.tsの固定先 | 成功 |
+| UT2 | 空/未知/任意URL/大文字/空白を拒否し入力値をerrorへ出さない | ApiProxy.spec.tsの未知拒否 | 成功 |
 
 ネットワーク到達・Cookieは別の機能試験で確認する。2026-11-26。

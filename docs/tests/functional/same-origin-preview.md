@@ -15,7 +15,7 @@
 
 | ID | 条件 | 手順/期待 | 結果 |
 | --- | --- | --- | --- |
-| RFT1 | AC1 | compose既定/railway固定先と空/未知拒否を単体確認 | 未実施 |
-| RFT2 | AC1/AC2/AC3 | Railway指定のWeb imageと内部DNS aliasで23項目・no-store/SQLを確認 | 未実施 |
+| RFT1 | AC1 | compose既定/railway固定先と空/未知拒否を単体確認 | 成功 |
+| RFT2 | AC1/AC2/AC3 | Railway指定のWeb imageと内部DNS aliasで23項目・no-store/SQLを確認 | 成功 |
 
 実Railwayのプラン/残枠/HTTPS/サービス起動は接続後に確認する。ローカルalias試験を実公開の成功にしない。
