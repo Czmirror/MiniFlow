@@ -15,3 +15,5 @@
 - Web imageは既定で同一Originの`/api`へ接続する。公開API接続先はbuild時に固定され、実行時のenv変更では変わらない。秘密をbuild引数に渡さない。
 - Web/APIの公開配信先・TLS終端は未作成。ローカルE2Eだけ既存HTTPS proxyを使う。Nextのbuild IDとDocker image IDで成果物を照合し、HTML/staticの実HTTP headerを記録する。
 - 性能の目標は未定。今回、imageサイズの記録は行うが性能改善の主張はしない。
+
+- APIは成功・エラー・空応答を含めて`Cache-Control: no-store`とする。WebのHTML/staticのcache方針は別に維持する。公開先のheader上書きは配信時に確認する。

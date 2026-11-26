@@ -152,3 +152,7 @@ repository rootで`docker build -f apps/web/Dockerfile -t miniflow-web:local .`�
 `docker run --rm --init --read-only --tmpfs /tmp:rw,noexec,nosuid,size=16m --cap-drop ALL --security-opt no-new-privileges -p 127.0.0.1:43152:3000 miniflow-web:local`でローカル起動できる。同一Originの`/api`をAPIへ転送するHTTPS入口は別途必要。imageはnodeユーザーでstandalone serverを起動する。通常の開発用build/startにはstandalone用envを指定しない。
 
 Webを含む試験は`tests/integration/container.compose.yml`を使う。ComposeがWebも起動するため、ホストでNextを別起動しない。migrationと架空ユーザー投入は個別承認された使い捨てDBだけで行う。既存の[22項目E2E](work/request-action-guidance/result.md)を同じdriverで再実行する。公開TLS/DNS・共有デモの運用は未構築。
+
+## APIのcache方針
+
+認証・申請・管理を含む全API応答は、成功/拒否/障害/空応答とも`Cache-Control: no-store`を返す。共有cacheとブラウザのHTTP cacheへ保存させないための指定であり、過去のcacheや履歴・画面メモリを消去する機能ではない。公開先でheaderを上書きせず、認証付きAPIをcacheする設定を追加しない。WebのHTML/staticのcacheとは区別する。[仕様と試験](specs/api-cache-safety.md)を参照。

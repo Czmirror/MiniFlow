@@ -236,3 +236,7 @@ Do NOT implement:
 
 - `apps/web/Dockerfile`と専用ignoreは必要な入力だけでstandalone Webを作り、非rootで起動する。Next設定の`MINIFLOW_STANDALONE=1`はDocker buildだけで指定する。
 - `tests/integration/container.compose.yml`はWebも起動する。既存HTTPS proxyと22項目のdriverを再利用する。仕様は`docs/specs/web-container.md`、記録は`docs/work/preview-web-container/`。
+
+## API応答の保存禁止
+
+- `createHttpServer`の送信hookはAPI全体へ`Cache-Control: no-store`を適用する。仕様と実応答の記録は`docs/specs/api-cache-safety.md`・`docs/work/api-cache-safety/`。`ApiCacheControl.spec.ts`と既存E2Eで成功/拒否/障害を確認する。
