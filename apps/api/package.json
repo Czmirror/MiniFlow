@@ -11,7 +11,8 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
-    "admin:create": "node --import tsx src/cli/createAdmin.ts"
+    "admin:create": "node --import tsx src/cli/createAdmin.ts",
+    "db:deploy": "node node_modules/prisma/build/index.js migrate deploy --schema=prisma/schema.prisma"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",
@@ -22,12 +23,12 @@
     "bcryptjs": "^3.0.2",
     "fastify": "^5.2.1",
     "fastify-plugin": "^5.0.1",
-    "pg": "^8.14.1"
+    "pg": "^8.14.1",
+    "prisma": "^6.5.0"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
     "@types/pg": "^8.11.11",
-    "prisma": "^6.5.0",
     "tsx": "^4.19.3",
     "typescript": "^5.8.2"
   }

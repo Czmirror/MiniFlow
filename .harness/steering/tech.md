@@ -21,3 +21,5 @@
 - Docker用Webは/apiを内部http://api:3001へ転送する。APIの許可Hostはapi:3001。TLS入口はWebだけへ接続し、APIを直接公開しない。公開先のTLS/アクセス制限は未作成。
 
 - Web buildのMINIFLOW_DEPLOY_TARGETはcompose（既定）/railwayだけ。Railwayは内部api.railway.internal:3001へ接続し、API_ALLOWED_HOSTSも同じ値にする。アカウント接続とTrial残枠を確認済み。Web/APIの設定は未適用で、実公開は未完了。
+
+- APIコンテナは既存Prisma CLIとschema/migrationsを同梱する。通常CMDではDB更新せず、個別承認後にCLIを明示実行する。`docs/specs/api-container.md`のAC5と`docs/runbook.md`を参照する。

@@ -168,3 +168,9 @@ Docker Webの既定`/api`は本番Webのrewritesで内部APIへ届く。転送�
 ## Railwayで試す場合
 
 [無料枠の公開準備](railway-preview.md)にサービス構成と設定表をまとめる。Webのbuild引数MINIFLOW_DEPLOY_TARGET=railwayで固定内部api.railway.internal:3001へ接続する。アカウント接続済みで、Web/APIの設定は未適用。実公開は未実施。localhost DBの既存承認をRailway DBへ適用しない。
+
+## コンテナからDB更新を明示実行する
+
+API imageは既存Prisma CLI、schema、9件のmigrationを同梱する。通常のAPI起動やimageのbuildではDB更新を行わない。対象環境・DB・schema・既存データ・復旧方法を照合し、個別承認を受けた後にだけ、対象APIコンテナ内の/appで`node node_modules/prisma/build/index.js migrate deploy --schema=prisma/schema.prisma`を実行する。接続先は実行環境のDATABASE_URLを使い、引数・ログ・チャットへ実値を書かない。
+
+起動時にpnpm/npmを取得したり、Prismaのファイルをダウンロードしたりする手順は使わない。必要な実行ファイルはbuild時に揃え、非root・読取専用・通信なしの版確認で照合する。`migrate dev`や`db push`を公開DBへ使わず、実行権限を持つ人が失敗内容と適用状況を確認する。既存DBをresetせず、失敗時は公開を止めて前進修正を検討する。

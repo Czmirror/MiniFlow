@@ -20,3 +20,9 @@ flowchart LR
 既存転送先を探しnext.configの1箇所を置換する。関数は転送先の決定だけ、Nextは配信、Dockerfileは組立、overrideは試験接続を担当し、業務/API認可を追加しない。Input validation/Security→2選択肢と未知拒否→単体試験。Web delivery→実manifest/headerと23項目。Database→同じ固定localhost:55449/miniflow_container_testの空tmpfsへ既存9migration/架空4人だけを投入し終了後破棄。
 
 Railway接続は未完了。接続依頼を重複検索後TickTickへ登録済み。接続までcloud作成/公開URL/実DB初期化は未実施。有料upgrade・支払い方法追加・任意URL proxy・不特定多数への資格情報公開は対象外。Free/Trialの残クレジットとプランは接続後に確認する。標準lint/依存監査/CI自動E2Eの既存の穴は今回変更しない。性能目標は未定。無料枠の常時稼働/起動時間は未検証。
+
+## 2026-11-27：DB更新手段の準備
+
+公開準備とE2E継続の依頼に基づき、APIコンテナへ既存Prisma CLIと既存migration/schemaを同梱する。通常の起動・buildでDB更新を自動実行しない。API packageの既存Prisma依存を本番側へ移し、バージョンと解決先を維持する。Dockerfileは成果物の組立だけを担当し、DB接続・データ投入は別途承認した運用操作が担当する。新たな移行実装や業務SQLは追加しない。
+
+[APIコンテナ仕様](../../specs/api-container.md)AC5と機能試験FT6で、最終image内のCLI版・9migration・schema・非root・通常CMDを確認する。既存CLIを利用するため実装を写した単体試験は追加しない。Docker build、標準検証、許可済みローカル専用DBでE2Eを確認する。Railway DBは個別承認前に適用しない。
